@@ -1,0 +1,17 @@
+POST http://localhost:3000/technician/assign
+Content-Type: application/json
+
+{
+  "taskId": "abc123",
+  "issueType": "AC Repair",
+  "userLocation": "17.4375,78.4483"
+}
+
+### Update Task Status
+POST http://localhost:3000/technician/update-task-status
+Content-Type: application/json
+
+{
+  "taskId": "abc123",
+  "newStatus": "completed"
+}
