@@ -44,7 +44,26 @@ if (category === "electrical") {
 
   for (const doc of techsSnapshot.docs) {
     const tech = doc.data();
-    if (tech.job!==issueType) continue;
+
+    // Check if technician can handle this issue type
+    let canHandle = false;
+
+    // Check old format (job field)
+    if (tech.job === issueType) {
+      canHandle = true;
+    }
+
+    // Check new format (skills array)
+    if (tech.skills && Array.isArray(tech.skills)) {
+      const skillsLower = tech.skills.map(skill => skill.toLowerCase());
+      if (skillsLower.includes(category.toLowerCase()) ||
+          skillsLower.includes('general maintenance') ||
+          skillsLower.includes('general')) {
+        canHandle = true;
+      }
+    }
+
+    if (!canHandle) continue;
 
     const techLoc = `${tech.location.lat},${tech.location.lng}`;
     const loc=`${location.lat},${location.lng}`
