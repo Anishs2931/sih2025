@@ -1,0 +1,27 @@
+POST http://localhost:3000/api/technician/assign
+Content-Type: application/json
+
+{
+  "taskId": "abc123",
+  "issueType": "AC Repair",
+  "userLocation": "17.4375,78.4483"
+}
+
+### Update Task Status
+POST http://localhost:3000/api/technician/update-task-status
+Content-Type: application/json
+
+{
+  "taskId": "abc123",
+  "newStatus": "completed"
+}
+
+### detect-issue
+
+POST http://localhost:3000/api/issue/detect
+Content-Type: application/json
+
+{
+  "imageUrl":"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSR51C-pKBRv68ZrVPkVt3QD_9DY-kG7YFTcg&s",
+  "location":{"lat":17.4375,"lng":78.4483}
+}
