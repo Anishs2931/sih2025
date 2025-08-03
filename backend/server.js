@@ -19,6 +19,11 @@ app.use("/api/auth", loginRoutes);
 app.use("/api/userData", userDataRoutes);
 app.use("/api/twilio", twilioRoutes);
 
+app.get('/ping', (req, res) => {
+  res.json({ message: 'Backend is alive!' });
+});
+
+
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

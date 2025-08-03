@@ -22,7 +22,6 @@ async function vision(imageBuffer) {
   const response = await result.response;
   const category = response.text().trim().toLowerCase();
 
-  // Normalize the response to ensure consistent handling
   if (category.includes('none') || category.includes('no issue') || category.includes('not an issue')) {
     return 'none';
   }
