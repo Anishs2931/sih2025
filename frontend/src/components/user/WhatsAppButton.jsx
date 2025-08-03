@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MessageCircle, Send, Check, X } from 'lucide-react';
 import PhoneSetupModal from './PhoneSetupModal';
+import { createApiUrl } from '../../utils/api';
 
 const WhatsAppButton = ({ userEmail, onSuccess, onError }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -10,7 +11,7 @@ const WhatsAppButton = ({ userEmail, onSuccess, onError }) => {
   const handleSendWhatsAppPrompt = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/twilio/send-whatsapp-prompt', {
+      const response = await fetch(createApiUrl('api/twilio/send-whatsapp-prompt'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

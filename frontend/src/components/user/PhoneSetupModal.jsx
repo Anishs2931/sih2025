@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, X, Check } from 'lucide-react';
+import { createApiUrl } from '../../utils/api';
 
 const PhoneSetupModal = ({ isOpen, onClose, userEmail, onSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -20,7 +21,7 @@ const PhoneSetupModal = ({ isOpen, onClose, userEmail, onSuccess }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/api/user/update-phone', {
+      const response = await fetch(createApiUrl('api/user/update-phone'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

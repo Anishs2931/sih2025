@@ -2,7 +2,6 @@ const { v4: uuidv4 } = require('uuid');
 const db=require('../firebase')
 
 async function addIssue(category,location){
-    // Safety check: Never create issues for "none" category
     const normalizedCategory = category.toString().trim().toLowerCase();
     if(normalizedCategory === 'none' || normalizedCategory.includes('none') || normalizedCategory.includes('no issue')){
       throw new Error('Cannot create issue for "none" category');
@@ -10,7 +9,6 @@ async function addIssue(category,location){
 
     let taskId=uuidv4();
     try{
-      // location can be an object with extra fields
       let userLocation = typeof location === 'object' ? location.location : location;
       let floor = typeof location === 'object' ? (location.floor || '') : '';
       let sector = typeof location === 'object' ? (location.sector || '') : '';
@@ -33,7 +31,7 @@ async function addIssue(category,location){
     }
     catch(err){
       console.error('Error creating issue:', err);
-      throw err; // Throw the error instead of returning it
+      throw err; 
     }
 }
 

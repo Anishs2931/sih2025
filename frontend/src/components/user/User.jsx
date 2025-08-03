@@ -4,6 +4,7 @@ import CameraCapture from './CameraCapture';
 import NotificationToast from './NotificationToast';
 import NoIssueDetectedModal from './NoIssueDetectedModal';
 import WhatsAppButton from './WhatsAppButton';
+import { createApiUrl } from '../../utils/api';
 
 const FixifyUserDashboard = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -55,9 +56,9 @@ const FixifyUserDashboard = () => {
     try {
       console.log("Fetching data for user:", currentUser.email)
       const [commRes, issuesRes, notifRes] = await Promise.all([
-        fetch(`http://localhost:3000/api/userData/community/${currentUser.email}`),
-        fetch(`http://localhost:3000/api/userData/issues/${currentUser.email}`),
-        fetch(`http://localhost:3000/api/userData/notifications/${currentUser.email}`)
+        fetch(createApiUrl(`api/userData/community/${currentUser.email}`)),
+        fetch(createApiUrl(`api/userData/issues/${currentUser.email}`)),
+        fetch(createApiUrl(`api/userData/notifications/${currentUser.email}`))
       ]);
       console.log('API Responses:', { commRes, issuesRes, notifRes });
       const commData = await commRes.json();
@@ -145,7 +146,7 @@ const FixifyUserDashboard = () => {
       formData.append('floor', issueForm.floor);
       formData.append('sector', issueForm.sector);
       formData.append('instructions', issueForm.instructions);
-      const response = await fetch('http://localhost:3000/api/issue/detect', {
+      const response = await fetch(createApiUrl('api/issue/detect'), {
         method: 'POST',
         body: formData
       });

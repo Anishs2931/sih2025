@@ -5,12 +5,10 @@ const bcrypt = require("bcrypt");
 
 const router = express.Router();
 
-// User Registration
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password, phone, address } = req.body;
 
-    // Validation
     if (!name || !email || !password || !phone) {
       return res.status(400).json({
         success: false,
@@ -18,7 +16,6 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({
@@ -27,7 +24,6 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Validate phone number (should be 10 digits)
     const phoneRegex = /^\d{10}$/;
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({
@@ -35,8 +31,6 @@ router.post("/register", async (req, res) => {
         message: "Please enter a valid 10-digit phone number"
       });
     }
-
-    // Check if user already exists
     const existingUserEmail = await db.collection('users').where('email', '==', email).get();
     if (!existingUserEmail.empty) {
       return res.status(400).json({
@@ -45,8 +39,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Check if phone number already exists
-    const phoneWithCountryCode = '91' + phone; // Add India country code
+    const phoneWithCountryCode = '91' + phone; 
     const existingUserPhone = await db.collection('users').where('phone', '==', phoneWithCountryCode).get();
     if (!existingUserPhone.empty) {
       return res.status(400).json({
@@ -55,26 +48,21 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create user document
     const userData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
-      phone: phoneWithCountryCode, // Store with country code for WhatsApp
+      phone: phoneWithCountryCode,
       address: address?.trim() || '',
       role: 'user',
       createdAt: new Date().toISOString(),
       isActive: true
     };
 
-    // Save to database
     const userRef = await db.collection('users').add(userData);
-
-
 
     res.json({
       success: true,
@@ -91,12 +79,10 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// User Login
 router.post("/login", async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -104,9 +90,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // For user login, use our custom logic instead of the generic login function
     if (role === 'user') {
-      // Find user by email
       const userSnapshot = await db.collection('users').where('email', '==', email.toLowerCase().trim()).get();
 
       if (userSnapshot.empty) {
@@ -118,7 +102,6 @@ router.post("/login", async (req, res) => {
 
       const userData = userSnapshot.docs[0].data();
 
-      // Check if user is active
       if (!userData.isActive) {
         return res.status(401).json({
           success: false,
@@ -126,7 +109,6 @@ router.post("/login", async (req, res) => {
         });
       }
 
-      // Verify password
       const passwordMatch = await bcrypt.compare(password, userData.password);
 
       if (!passwordMatch) {
@@ -135,8 +117,6 @@ router.post("/login", async (req, res) => {
           message: "Invalid email or password"
         });
       }
-
-      // Login successful
 
       res.json({
         success: true,
@@ -152,7 +132,6 @@ router.post("/login", async (req, res) => {
       });
 
     } else {
-      // For other roles (technician, admin), use existing login function
       let result = await login(email, password, role);
       if (result.success) {
         res.json({ success: true });

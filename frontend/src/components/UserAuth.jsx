@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Mail, Phone, MapPin, Lock, ArrowLeft } from 'lucide-react';
+import { createApiUrl } from '../utils/api';
 
 const UserAuth = ({ onLogin, onBack }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -83,7 +84,7 @@ const UserAuth = ({ onLogin, onBack }) => {
             address: formData.address
           };
 
-      const response = await fetch(`http://localhost:3000${endpoint}`, {
+      const response = await fetch(createApiUrl(endpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

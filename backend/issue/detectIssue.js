@@ -3,26 +3,21 @@ const {vision} =require('../aiPipeline/vision')
 const {addIssue}=require("../issue/addIssue")
 
 async function detect(imageBuffer, location) {
-    // If location is an object with a stringified location field, parse it
     if (location && typeof location.location === 'string') {
       try {
         location.location = JSON.parse(location.location);
       } catch (e) {
-        // If not JSON, keep as string
       }
     }
-    // Also handle top-level string location
     if (typeof location === 'string') {
       try {
         location = JSON.parse(location);
       } catch (e) {
-        // If not JSON, keep as string
       }
     }
     try {
       let category = await vision(imageBuffer);
 
-      // Normalize and check for "none" more robustly
       const normalizedCategory = category.toString().trim().toLowerCase();
 
       if(normalizedCategory === 'none' || normalizedCategory.includes('none') || normalizedCategory.includes('no issue')){
@@ -38,12 +33,10 @@ async function detect(imageBuffer, location) {
       let taskId = await addIssue(category, location);
       let assignmentResult = await assignTechnician(taskId, category, location.location || location);
 
-      // Get the created issue details from database
       const db = require('../firebase');
       const taskDoc = await db.collection('tasks').doc(taskId).get();
       const taskData = taskDoc.exists ? taskDoc.data() : null;
 
-      // Format ETA for display
       const formatETA = (etaSeconds) => {
         if (!etaSeconds) return 'Unknown';
         const minutes = Math.round(etaSeconds / 60);
@@ -52,7 +45,6 @@ async function detect(imageBuffer, location) {
         return `${hours} hour${hours > 1 ? 's' : ''}`;
       };
 
-      // Create comprehensive response
       const result = {
         success: true,
         taskId: taskId,

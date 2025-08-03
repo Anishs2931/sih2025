@@ -7,24 +7,26 @@ const db = require('../firebase');
 
 const router = express.Router();
 
-// Add body parser middleware for Twilio webhooks
 router.use(bodyParser.urlencoded({ extended: false }));
 router.use(bodyParser.json());
 
-// Test route to verify Twilio routes are working
 router.get('/test', (req, res) => {
   res.json({ message: 'Twilio routes working!', timestamp: new Date().toISOString() });
 });
 
-// Initialize Twilio client with environment variables
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || 'ACab7242fe0bd3bb5a4b3988a76e59006e';
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '76d4a82632d0bbf1e496ccff5b5582a3';
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+
+if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+  console.error('Error: Twilio credentials not found!');
+  console.error('Please set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in your .env file');
+  process.exit(1);
+}
 
 
 
 const twilio = require('twilio')(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
-// Function to format phone number for WhatsApp
 function formatWhatsAppNumber(phoneNumber) {
   let cleanNumber = phoneNumber.replace('whatsapp:', '');
   if (!cleanNumber.startsWith('+')) {
@@ -33,7 +35,6 @@ function formatWhatsAppNumber(phoneNumber) {
   return cleanNumber;
 }
 
-// Function to download image and convert to buffer
 async function downloadImageAsBuffer(imageUrl) {
   try {
     const response = await axios.get(imageUrl, {
@@ -51,14 +52,12 @@ async function downloadImageAsBuffer(imageUrl) {
   }
 }
 
-// Function to handle location messages and create issues
 async function handleLocationMessage(from, user, latitude, longitude, locationType, addressText = null) {
   try {
     const pendingIssueKey = `pending_${from.replace('whatsapp:', '').replace('+', '')}`;
     const pendingIssue = global.pendingIssues?.[pendingIssueKey];
 
     if (!pendingIssue) {
-      // No pending issue found
       await twilio.messages.create({
         body: `❌ **No Pending Issue Found**\n\n` +
               `I don't have a pending issue report for your number.\n\n` +
@@ -72,7 +71,6 @@ async function handleLocationMessage(from, user, latitude, longitude, locationTy
       return;
     }
 
-    // Check if pending issue is too old (30 minutes)
     if (Date.now() - pendingIssue.timestamp > 30 * 60 * 1000) {
       delete global.pendingIssues[pendingIssueKey];
       await twilio.messages.create({
@@ -85,7 +83,6 @@ async function handleLocationMessage(from, user, latitude, longitude, locationTy
       return;
     }
 
-    // Prepare location data
     let locationData = { userEmail: user.email };
     let locationText = '';
 
@@ -101,19 +98,14 @@ async function handleLocationMessage(from, user, latitude, longitude, locationTy
     }
 
 
-
-    // Convert image buffer back from base64
     const imageBuffer = Buffer.from(pendingIssue.imageBuffer, 'base64');
 
-    // Now create the issue with location
     const { detect } = require('../issue/detectIssue');
     const result = await detect(imageBuffer, locationData);
 
-    // Clean up pending issue
     delete global.pendingIssues[pendingIssueKey];
 
     if (result && result.success) {
-      // Issue created successfully
       const responseMessage = `${pendingIssue.emoji} **ISSUE REGISTERED SUCCESSFULLY!**\n\n` +
                             `📋 **Issue ID:** ${result.issueDetails.id}\n` +
                             `🔍 **Category:** ${pendingIssue.categoryName}\n` +
@@ -136,7 +128,6 @@ async function handleLocationMessage(from, user, latitude, longitude, locationTy
         to: from
       });
     } else {
-      // Error creating issue
       await twilio.messages.create({
         body: `❌ **Error Creating Issue**\n\n` +
               `Sorry, there was an error registering your issue. Please try again.\n\n` +

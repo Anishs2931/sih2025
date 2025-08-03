@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Camera, MapPin, Star, Clock, CheckCircle, Phone, Mail, AlertCircle, Upload, FileImage, Play, Pause, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCurrentUser } from '../../contexts/CurrentUserContext';
+import { createApiUrl } from '../../utils/api';
 
 const TechnicianDashboard = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const TechnicianDashboard = () => {
       // Fetch technician profile
       try {
         setIsLoadingProfile(true);
-        const response = await fetch(`http://localhost:3000/api/technician/profile/${currentUser.email}`);
+        const response = await fetch(createApiUrl(`api/technician/profile/${currentUser.email}`));
         if (response.ok) {
           const data = await response.json();
           setTechnicianData(data.technician);
@@ -95,7 +96,7 @@ const TechnicianDashboard = () => {
     if (!technicianData?.id) return;
     setIsLoadingTasks(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/technician/tasks/${technicianData.id}`);
+      const response = await fetch(createApiUrl(`api/technician/tasks/${technicianData.id}`));
       const data = await response.json();
       if (response.ok) {
         // Sort tasks by priority and urgency
@@ -157,7 +158,7 @@ const TechnicianDashboard = () => {
   const handleInitiateTask = async (taskId) => {
     setIsUpdatingTask(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/technician/task/${taskId}/initiate`, {
+      const response = await fetch(createApiUrl(`api/technician/task/${taskId}/initiate`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ technicianId: technicianData.id })
@@ -184,7 +185,7 @@ const TechnicianDashboard = () => {
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     setIsUpdatingTask(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/technician/task/${taskId}/status`, {
+      const response = await fetch(createApiUrl(`api/technician/task/${taskId}/status`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -239,7 +240,7 @@ const TechnicianDashboard = () => {
       formData.append('photoType', photoType);
       formData.append('description', photoDescription);
 
-      const response = await fetch('http://localhost:3000/api/technician/verify-photo', {
+      const response = await fetch(createApiUrl('api/technician/verify-photo'), {
         method: 'POST',
         body: formData
       });
