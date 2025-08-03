@@ -6,7 +6,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
 
-console.log('Technician routes loaded!');
+
 
 // Configure multer for file uploads
 const upload = multer({

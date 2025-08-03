@@ -2,7 +2,11 @@ const db = require("../firebase");
 const { getETA } = require("./maps");
 
 async function assignTechnician(taskId, category, location) {
-
+  // Safety check for taskId
+  if (!taskId) {
+    console.error('No taskId provided to assignTechnician');
+    return { assigned: false, error: 'No task ID provided' };
+  }
 
   const techsSnapshot = await db.collection("technicians")
     .where("status", "==", "available")

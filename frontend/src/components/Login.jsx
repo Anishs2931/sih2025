@@ -3,6 +3,7 @@ import { useCurrentUser } from '../contexts/CurrentUserContext';
 import User from './user/User';
 import Technician from './technician/Technician';
 import Admin from './admin/Admin';
+import UserAuth from './UserAuth';
 
 const FixifyLandingPage = () => {
   const [currentPage, setCurrentPage] = useState('home');
@@ -11,6 +12,7 @@ const FixifyLandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [animatedStats, setAnimatedStats] = useState({ issues: 0, techs: 0, satisfaction: 0 });
+  const [showUserAuth, setShowUserAuth] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -89,6 +91,13 @@ const FixifyLandingPage = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // Handle user login from UserAuth component
+  const handleUserLogin = (userData) => {
+    setCurrentUser(userData);
+    setShowUserAuth(false);
+    navigate('/user-dashboard');
   };
 
   const handleAuthSubmit = async () => {
@@ -263,6 +272,23 @@ const FixifyLandingPage = () => {
               ))}
             </div>
 
+            {/* New User Registration Option */}
+            {currentRole === 'user' && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
+                <div className="text-center">
+                  <p className="text-sm text-gray-700 mb-3">
+                    <span className="font-semibold">New to Fixify.AI?</span> Create your account with phone number for WhatsApp integration!
+                  </p>
+                  <button
+                    onClick={() => setShowUserAuth(true)}
+                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg font-medium hover:from-green-600 hover:to-blue-600 transition-all duration-200 transform hover:scale-105 shadow-md"
+                  >
+                    🚀 Create New Account
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Login Form Only */}
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
@@ -325,6 +351,16 @@ const FixifyLandingPage = () => {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Render UserAuth component if showUserAuth is true
+  if (showUserAuth) {
+    return (
+      <UserAuth
+        onLogin={handleUserLogin}
+        onBack={() => setShowUserAuth(false)}
+      />
     );
   }
 

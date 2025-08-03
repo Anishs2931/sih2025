@@ -19,9 +19,22 @@ async function detect(imageBuffer, location) {
         // If not JSON, keep as string
       }
     }
-    console.log(location)
     try {
       let category = await vision(imageBuffer);
+
+      // Normalize and check for "none" more robustly
+      const normalizedCategory = category.toString().trim().toLowerCase();
+
+      if(normalizedCategory === 'none' || normalizedCategory.includes('none') || normalizedCategory.includes('no issue')){
+        return {
+          success: false,
+          noIssueDetected: true,
+          message: 'No maintenance problem detected. Please capture an image showing clear signs of damage, malfunction, or issues that need repair.',
+          category: 'none'
+        };
+      }
+
+
       let taskId = await addIssue(category, location);
       let assignmentResult = await assignTechnician(taskId, category, location.location || location);
 
@@ -73,7 +86,7 @@ async function detect(imageBuffer, location) {
 
       return result;
     } catch (err) {
-      console.log(err);
+      console.error('Error in detectIssue:', err);
       return {
         success: false,
         error: err.message || err,

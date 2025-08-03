@@ -7,11 +7,19 @@ async function getETA(origin, destination) {
 
   try {
     const response = await axios.get(url);
-    const duration = response.data.rows[0].elements[0].duration.value; // seconds
-    return duration;
+
+    // Check if response has valid data
+    if (response.data && response.data.rows && response.data.rows[0] &&
+        response.data.rows[0].elements && response.data.rows[0].elements[0] &&
+        response.data.rows[0].elements[0].duration) {
+      const duration = response.data.rows[0].elements[0].duration.value; // seconds
+      return duration;
+    } else {
+      return 1800; // Default 30 minutes
+    }
   } catch (err) {
     console.error("Google Maps API error:", err);
-    return Infinity;
+    return 1800; // Default 30 minutes instead of Infinity
   }
 }
 

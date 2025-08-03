@@ -16,6 +16,33 @@ router.get('/email/:email', async (req, res) => {
   }
 });
 
+// Update user phone number
+router.post('/update-phone', async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+
+    if (!email || !phone) {
+      return res.status(400).json({ error: 'Email and phone are required' });
+    }
+
+    // Find user by email
+    const userSnap = await db.collection('users').where('email', '==', email).get();
+
+    if (userSnap.empty) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update phone number
+    const userDoc = userSnap.docs[0];
+    await userDoc.ref.update({ phone: phone });
+
+    res.json({ success: true, message: 'Phone number updated successfully' });
+  } catch (err) {
+    console.error('Error updating phone:', err);
+    res.status(500).json({ error: 'Failed to update phone number' });
+  }
+});
+
 router.post("/check-community", async (req, res) => {
   try {
     const { email } = req.body;

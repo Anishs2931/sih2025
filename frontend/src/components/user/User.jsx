@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useCurrentUser } from '../../contexts/CurrentUserContext';
+import CameraCapture from './CameraCapture';
+import NotificationToast from './NotificationToast';
+import NoIssueDetectedModal from './NoIssueDetectedModal';
+import WhatsAppButton from './WhatsAppButton';
 
 const FixifyUserDashboard = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [activeTab, setActiveTab] = useState('active');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCreateIssue, setShowCreateIssue] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [showNoIssueModal, setShowNoIssueModal] = useState(false);
+  const [notification, setNotification] = useState({ isVisible: false, type: 'info', title: '', message: '' });
   const [latestIssueResult, setLatestIssueResult] = useState(null); // holds assignment result after creation
   const [tempIssuesDB, setTempIssuesDB] = useState([]); // temporary database for created issues
   const [statsUpdated, setStatsUpdated] = useState(false); // for visual feedback when stats update
@@ -23,6 +30,15 @@ const FixifyUserDashboard = () => {
   
   // Dynamic data from backend
   const { currentUser, setCurrentUser } = useCurrentUser();
+
+  // Notification helper functions
+  const showNotification = (type, title, message, duration = 5000) => {
+    setNotification({ isVisible: true, type, title, message, duration });
+  };
+
+  const hideNotification = () => {
+    setNotification(prev => ({ ...prev, isVisible: false }));
+  };
   const [community, setCommunity] = useState(null);
   const [issues, setIssues] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -88,18 +104,18 @@ const FixifyUserDashboard = () => {
             setIssueForm(prev => ({ ...prev, location: { lat: latitude, lng: longitude } }));
             setLocationPermission('granted');
           } catch (error) {
-            alert('Unable to get address. Please enter manually.');
+            showNotification('warning', 'Location Error', 'Unable to get address. Please enter manually.');
           }
           setIsGettingLocation(false);
         },
         (error) => {
           setLocationPermission('denied');
           setIsGettingLocation(false);
-          alert('Location access denied. Please enter address manually.');
+          showNotification('warning', 'Location Access Denied', 'Please enter address manually or grant location permission.');
         }
       );
     } else {
-      alert('Geolocation is not supported by this browser.');
+      showNotification('error', 'Location Not Supported', 'Geolocation is not supported by this browser. Please enter address manually.');
       setIsGettingLocation(false);
     }
   };
@@ -107,13 +123,13 @@ const FixifyUserDashboard = () => {
   // Add this function to handle AI detection and issue creation
   const handleDetectAndCreateIssue = async () => {
     if (!issueForm.location || issueForm.images.length === 0) {
-      alert('Please add images and location to report the issue.');
+      showNotification('warning', 'Missing Information', 'Please add images and location to report the issue.');
       return;
     }
     try {
       const imageFile = issueForm.images[0].file || null;
       if (!imageFile) {
-        alert('Image file missing. Please re-upload.');
+        showNotification('error', 'Image Error', 'Image file missing. Please re-upload.');
         return;
       }
       const formData = new FormData();
@@ -135,8 +151,14 @@ const FixifyUserDashboard = () => {
       });
       const result = await response.json();
       console.log('Issue creation result:', result);
+      console.log('Response status:', response.status);
 
-      if (response.ok && result.success) {
+      if (response.status === 422 || result.noIssueDetected) {
+        // Handle "no issue detected" case - show modal instead of continuing
+        console.log('No issue detected, showing modal');
+        setShowNoIssueModal(true);
+        return; // Stop processing here
+      } else if (response.ok && result.success) {
         setLatestIssueResult(result); // Save assignment result for UI
 
         // Map backend status to frontend status for proper counting
@@ -183,16 +205,16 @@ const FixifyUserDashboard = () => {
         setShowCreateIssue(false);
         setIssueForm({ location: '', images: [], floor: '', sector: '', instructions: '' });
 
-        // Show success message with assignment details
-        alert(`✅ ${result.message}`);
+        // Show success notification with assignment details
+        showNotification('success', 'Issue Reported Successfully!', result.message, 7000);
 
         // Refresh issues list after reporting (to get server data)
         setTimeout(() => fetchUserRelatedData(), 1000);
       } else {
-        alert('AI detection failed: ' + (result.error || result.message || 'Unknown error'));
+        showNotification('error', 'Detection Failed', result.error || result.message || 'Unknown error occurred');
       }
     } catch (err) {
-      alert('Network error. Please try again.');
+      showNotification('error', 'Network Error', 'Unable to connect to server. Please check your connection and try again.');
     }
   };
 
@@ -296,33 +318,34 @@ const FixifyUserDashboard = () => {
     }
   };
 
-  // Add this function to handle camera capture
+  // Updated function to handle camera capture with new camera component
   const handleCameraCapture = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const imageData = {
-            type: 'image',
-            data: ev.target.result,
-            name: file.name || `Camera_${Date.now()}.jpg`,
-            file: file // store file object
-          };
-          setIssueForm(prev => ({
-            ...prev,
-            images: [...prev.images, imageData]
-          }));
-        };
-        reader.readAsDataURL(file);
-        getCurrentLocation();
-      }
-    };
-    input.click();
+    setShowCamera(true);
+  };
+
+  // Handle camera capture result
+  const handleCameraCaptureResult = (imageData) => {
+    setIssueForm(prev => ({
+      ...prev,
+      images: [...prev.images, imageData]
+    }));
+    getCurrentLocation();
+    setShowCamera(false);
+  };
+
+  // Handle no issue detected modal actions
+  const handleRetakePhoto = () => {
+    setShowNoIssueModal(false);
+    // Clear current images and open camera
+    setIssueForm(prev => ({ ...prev, images: [] }));
+    setShowCamera(true);
+  };
+
+  const handleUploadNewImage = () => {
+    setShowNoIssueModal(false);
+    // Clear current images - user can then use upload button
+    setIssueForm(prev => ({ ...prev, images: [] }));
+    showNotification('info', 'Upload New Image', 'Please select a different image that clearly shows the maintenance issue.');
   };
 
   // Add this function to handle gallery upload
@@ -367,11 +390,11 @@ const FixifyUserDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 ⚡ Fixify.AI
               </h1>
-              <span className="ml-4 text-gray-500">|</span>
-              <span className="ml-4 text-gray-700 font-medium">User Dashboard</span>
+              <span className="hidden sm:inline ml-4 text-gray-500">|</span>
+              <span className="hidden sm:inline ml-4 text-gray-700 font-medium">User Dashboard</span>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -388,16 +411,16 @@ const FixifyUserDashboard = () => {
                 </button>
                 
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
-                    <div className="p-4 border-b border-gray-100">
+                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+                    <div className="p-3 sm:p-4 border-b border-gray-100">
                       <h3 className="font-semibold text-gray-900">Notifications</h3>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">No notifications to show.</div>
+                        <div className="p-3 sm:p-4 text-center text-gray-500">No notifications to show.</div>
                       ) : (
                         notifications.map(notification => (
-                          <div key={notification.id || notification.message} className="p-4 border-b border-gray-50 hover:bg-gray-50">
+                          <div key={notification.id || notification.message} className="p-3 sm:p-4 border-b border-gray-50 hover:bg-gray-50">
                             <p className="text-sm text-gray-900">{notification.message}</p>
                             <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
                           </div>
@@ -409,12 +432,12 @@ const FixifyUserDashboard = () => {
               </div>
               
               {/* User Profile */}
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <div className="hidden sm:block text-right">
                   <p className="text-sm font-medium text-gray-900">{currentUser?.name}</p>
                   <p className="text-xs text-gray-500">User</p>
                 </div>
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm sm:text-lg">
                   {currentUser?.avatar}
                 </div>
               </div>
@@ -472,6 +495,15 @@ const FixifyUserDashboard = () => {
               >
                 + Report New Issue
               </button>
+
+              {/* WhatsApp Button */}
+              <div className="mt-3">
+                <WhatsAppButton
+                  userEmail="nivvv3106@gmail.com"
+                  onSuccess={(result) => showNotification('success', 'WhatsApp Message Sent!', 'Check your WhatsApp for instructions on how to report issues.')}
+                  onError={(error) => showNotification('error', 'WhatsApp Error', error)}
+                />
+              </div>
             </div>
           </div>
 
@@ -610,35 +642,35 @@ const FixifyUserDashboard = () => {
 
       {/* Create Issue Modal */}
       {showCreateIssue && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Report Issue</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Report Issue</h2>
               <button
                 onClick={() => setShowCreateIssue(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="text-gray-500 hover:text-gray-700 text-xl sm:text-2xl p-1"
               >
                 ×
               </button>
             </div>
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Capture Issue */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Capture Issue</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <button
                     type="button"
                     onClick={handleCameraCapture}
-                    className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all"
+                    className="flex flex-col items-center justify-center p-4 sm:p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all min-h-[100px] sm:min-h-[120px]"
                   >
-                    <div className="text-4xl mb-2">📷</div>
+                    <div className="text-3xl sm:text-4xl mb-2">📷</div>
                     <div className="text-sm font-medium text-gray-700">Take Photo</div>
-                    <div className="text-xs text-gray-500">Auto-detect location</div>
+                    <div className="text-xs text-gray-500 text-center">Use camera to capture issue</div>
                   </button>
-                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer">
-                    <div className="text-4xl mb-2">🖼️</div>
+                  <label className="flex flex-col items-center justify-center p-4 sm:p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer min-h-[100px] sm:min-h-[120px]">
+                    <div className="text-3xl sm:text-4xl mb-2">🖼️</div>
                     <div className="text-sm font-medium text-gray-700">Upload Photo</div>
-                    <div className="text-xs text-gray-500">Manual location</div>
+                    <div className="text-xs text-gray-500 text-center">Choose from gallery</div>
                     <input
                       type="file"
                       multiple
@@ -679,7 +711,7 @@ const FixifyUserDashboard = () => {
                     name="location"
                     value={issueForm.location}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                     placeholder="Enter location manually"
                   />
                   {issueForm.location && (
@@ -694,57 +726,57 @@ const FixifyUserDashboard = () => {
                 </div>
               </div>
 
-              {/* Floor (optional) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Floor (optional)</label>
-                <input
-                  type="text"
-                  name="floor"
-                  value={issueForm.floor}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter floor (optional)"
-                />
-              </div>
-
-              {/* Sector (optional) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sector (optional)</label>
-                <input
-                  type="text"
-                  name="sector"
-                  value={issueForm.sector}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter sector (optional)"
-                />
+              {/* Floor and Sector - responsive grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Floor (optional)</label>
+                  <input
+                    type="text"
+                    name="floor"
+                    value={issueForm.floor}
+                    onChange={handleInputChange}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                    placeholder="Enter floor"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sector (optional)</label>
+                  <input
+                    type="text"
+                    name="sector"
+                    value={issueForm.sector}
+                    onChange={handleInputChange}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                    placeholder="Enter sector"
+                  />
+                </div>
               </div>
 
               {/* Other Instructions (optional) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Other Instructions (optional)</label>
-                <input
-                  type="text"
+                <textarea
                   name="instructions"
                   value={issueForm.instructions}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter any other instructions (optional)"
+                  rows="3"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none"
+                  placeholder="Enter any additional details or instructions..."
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <button
                   type="button"
                   onClick={() => setShowCreateIssue(false)}
-                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                  className="w-full sm:flex-1 px-4 sm:px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   onClick={handleDetectAndCreateIssue}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+                  className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
                 >
                   Report Issue
                 </button>
@@ -850,6 +882,31 @@ const FixifyUserDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Camera Capture Component */}
+      <CameraCapture
+        isOpen={showCamera}
+        onCapture={handleCameraCaptureResult}
+        onClose={() => setShowCamera(false)}
+      />
+
+      {/* No Issue Detected Modal */}
+      <NoIssueDetectedModal
+        isOpen={showNoIssueModal}
+        onClose={() => setShowNoIssueModal(false)}
+        onRetakePhoto={handleRetakePhoto}
+        onUploadNew={handleUploadNewImage}
+      />
+
+      {/* Notification Toast */}
+      <NotificationToast
+        isVisible={notification.isVisible}
+        type={notification.type}
+        title={notification.title}
+        message={notification.message}
+        duration={notification.duration}
+        onClose={hideNotification}
+      />
     </div>
   );
 };
