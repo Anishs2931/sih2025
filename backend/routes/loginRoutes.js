@@ -102,7 +102,8 @@ router.post("/login", async (req, res) => {
 
       const userData = userSnapshot.docs[0].data();
 
-      if (!userData.isActive) {
+      // Check if user is active (default to true if field doesn't exist)
+      if (userData.isActive === false) {
         return res.status(401).json({
           success: false,
           message: "Account is deactivated. Please contact support."

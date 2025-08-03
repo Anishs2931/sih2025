@@ -7,12 +7,38 @@ const router = express.Router();
 router.get('/email/:email', async (req, res) => {
   try {
     const email = req.params.email;
-    const userSnap = await db.collection('users').where('email', '==', email).get();
-    if (userSnap.empty) return res.json({ user: null });
+    const userSnap = await db.collection('users').where('email', '==', email.toLowerCase()).get();
+
+    if (userSnap.empty) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+        user: null
+      });
+    }
+
     const userData = userSnap.docs[0].data();
-    res.json({ user: userData });
+    const userId = userSnap.docs[0].id;
+
+    res.json({
+      success: true,
+      user: {
+        id: userId,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        address: userData.address,
+        role: userData.role,
+        isActive: userData.isActive !== false,
+        createdAt: userData.createdAt
+      }
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch user.' });
+    console.error('Error fetching user:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user.'
+    });
   }
 });
 

@@ -24,8 +24,7 @@ function App() {
           {/* Role-based dashboards */}
           <Route path="/user-dashboard" element={<FixifyUserDashboard />} />
           <Route path="/technician-dashboard" element={<TechnicianDashboard/>} />
-          <Route path="/user-dashboard" element={<FixifyAdminDashboard/>} />
-          <Route path="/admin-dashboard" element={<FixifyUserDashboard />} />
+          <Route path="/admin-dashboard" element={<FixifyAdminDashboard />} />
 
           {/* Community route */}
           <Route path="/community" element={<CommunityDescription />} />

@@ -131,10 +131,12 @@ const FixifyLandingPage = () => {
           // For admin, we'll use a simple user object for now
           setCurrentUser({ email: formData.email, role: 'admin', name: 'Admin User' });
         } else {
-          // For regular users
-          const userRes = await fetch(createApiUrl(`api/user/email/${formData.email}`));
-          userData = await userRes.json();
-          setCurrentUser({ ...userData.user, role: 'user' } || { email: formData.email, role: 'user' });
+          // For regular users, use the login response data
+          setCurrentUser({
+            ...data.user,
+            role: 'user',
+            email: formData.email
+          });
         }
 
         // After login, go to dashboard
