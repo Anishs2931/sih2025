@@ -187,6 +187,10 @@ async function getUserByPhone(phoneNumber) {
 // Route to send WhatsApp message to user
 router.post('/send-whatsapp-prompt', async (req, res) => {
   try {
+    console.log('🔧 Twilio Environment Variables Check:');
+    console.log('   TWILIO_ACCOUNT_SID:', process.env.TWILIO_ACCOUNT_SID ? `${process.env.TWILIO_ACCOUNT_SID.substring(0, 10)}...` : 'NOT SET');
+    console.log('   TWILIO_AUTH_TOKEN:', process.env.TWILIO_AUTH_TOKEN ? 'SET (hidden)' : 'NOT SET');
+    
     const { userEmail } = req.body;
 
 
@@ -214,6 +218,13 @@ router.post('/send-whatsapp-prompt', async (req, res) => {
     // Remove + if present
     phoneNumber = phoneNumber.replace('+', '');
 
+    console.log('📱 Preparing to send WhatsApp message:');
+    console.log('   User:', userData.name);
+    console.log('   Email:', userData.email);
+    console.log('   Original phone:', userData.phone);
+    console.log('   Processed phone:', phoneNumber);
+    console.log('   WhatsApp TO:', `whatsapp:+${phoneNumber}`);
+    console.log('   WhatsApp FROM:', 'whatsapp:+14155238886');
 
     
     const message = `🤖 **Fixify.AI - Report Issue via WhatsApp**\n\n` +
@@ -235,7 +246,8 @@ router.post('/send-whatsapp-prompt', async (req, res) => {
                    `📱 **Send your first photo now to get started!**\n` +
                    `💡 **Tip:** Type "LOCATION" for help sharing your location`;
 
-
+    console.log('📝 Message content length:', message.length, 'characters');
+    console.log('📤 Sending WhatsApp message via Twilio...');
 
     const result = await twilio.messages.create({
       body: message,
@@ -243,7 +255,14 @@ router.post('/send-whatsapp-prompt', async (req, res) => {
       to: `whatsapp:+${phoneNumber}`
     });
 
-
+    console.log('✅ WhatsApp message sent successfully!');
+    console.log('   Message SID:', result.sid);
+    console.log('   Status:', result.status);
+    console.log('   Date created:', result.dateCreated);
+    console.log('   To:', result.to);
+    console.log('   From:', result.from);
+    console.log('   Price:', result.price);
+    console.log('   Price unit:', result.priceUnit);
 
     res.json({
       success: true,

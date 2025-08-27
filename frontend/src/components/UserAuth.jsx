@@ -61,7 +61,7 @@ const UserAuth = ({ onLogin, onBack }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -70,11 +70,11 @@ const UserAuth = ({ onLogin, onBack }) => {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const payload = isLogin 
-        ? { 
-            email: formData.email, 
-            password: formData.password, 
-            role: 'user' 
+      const payload = isLogin
+        ? {
+            email: formData.email,
+            password: formData.password,
+            role: 'user'
           }
         : {
             name: formData.name,
@@ -84,7 +84,11 @@ const UserAuth = ({ onLogin, onBack }) => {
             address: formData.address
           };
 
-      const response = await fetch(createApiUrl(endpoint), {
+      console.log('UserAuth - Submitting:', { endpoint, payload });
+      const apiUrl = createApiUrl(endpoint);
+      console.log('UserAuth - API URL:', apiUrl);
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +96,9 @@ const UserAuth = ({ onLogin, onBack }) => {
         body: JSON.stringify(payload),
       });
 
+      console.log('UserAuth - Response status:', response.status);
       const data = await response.json();
+      console.log('UserAuth - Response data:', data);
 
       if (response.ok && data.success) {
         if (isLogin) {

@@ -1,7 +1,6 @@
 const express = require("express");
 const { login } = require("../auth/login");
 const db = require("../firebase");
-const bcrypt = require("bcrypt");
 
 const router = express.Router();
 
@@ -48,13 +47,11 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const userData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password: password, // Plain text (not secure)
       phone: phoneWithCountryCode,
       address: address?.trim() || '',
       role: 'user',
@@ -110,9 +107,7 @@ router.post("/login", async (req, res) => {
         });
       }
 
-      const passwordMatch = await bcrypt.compare(password, userData.password);
-
-      if (!passwordMatch) {
+      if (userData.password !== password) {
         return res.status(401).json({
           success: false,
           message: "Invalid email or password"

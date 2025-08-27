@@ -42,7 +42,6 @@ router.get('/issues/:email', async (req, res) => {
       instructions: task.instructions || ''
     }));
 
-    console.log('Fetched issues for user:', email, issues);
     res.json({ issues });
   } catch (err) {
     console.error('Error fetching issues:', err);
