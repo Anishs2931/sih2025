@@ -3,6 +3,7 @@ import { useCurrentUser } from '../contexts/CurrentUserContext';
 import User from './user/User';
 import Technician from './technician/Technician';
 import Admin from './admin/Admin';
+import { createApiUrl } from '../utils/api';
 
 const FixifyLandingPage = () => {
   const [currentPage, setCurrentPage] = useState('home');
@@ -94,7 +95,7 @@ const FixifyLandingPage = () => {
   const handleAuthSubmit = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(createApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +111,7 @@ const FixifyLandingPage = () => {
         // Fetch full user data based on role after login
         let userData;
         if (currentRole === 'technician') {
-          const techRes = await fetch(`http://localhost:3000/api/technician/profile/${formData.email}`);
+          const techRes = await fetch(createApiUrl(`/api/technician/profile/${formData.email}`));
           if (techRes.ok) {
             userData = await techRes.json();
             setCurrentUser({ ...userData.technician, role: 'technician' });
@@ -122,7 +123,7 @@ const FixifyLandingPage = () => {
           setCurrentUser({ email: formData.email, role: 'admin', name: 'Admin User' });
         } else {
           // For regular users
-          const userRes = await fetch(`http://localhost:3000/api/user/email/${formData.email}`);
+          const userRes = await fetch(createApiUrl(`/api/user/email/${formData.email}`));
           userData = await userRes.json();
           setCurrentUser({ ...userData.user, role: 'user' } || { email: formData.email, role: 'user' });
         }
