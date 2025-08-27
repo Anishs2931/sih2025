@@ -500,7 +500,7 @@ const FixifyUserDashboard = () => {
               {/* WhatsApp Button */}
               <div className="mt-3">
                 <WhatsAppButton
-                  userEmail="nivvv3106@gmail.com"
+                  userEmail={currentUser.email}
                   onSuccess={(result) => showNotification('success', 'WhatsApp Message Sent!', 'Check your WhatsApp for instructions on how to report issues.')}
                   onError={(error) => showNotification('error', 'WhatsApp Error', error)}
                 />
@@ -710,7 +710,7 @@ const FixifyUserDashboard = () => {
                   <input
                     type="text"
                     name="location"
-                    value={issueForm.location}
+                    value={typeof issueForm.location === 'object' && issueForm.location !== null ? `${issueForm.location.lat}, ${issueForm.location.lng}` : issueForm.location}
                     onChange={handleInputChange}
                     className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                     placeholder="Enter location manually"

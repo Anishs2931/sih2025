@@ -193,16 +193,17 @@ router.post('/send-whatsapp-prompt', async (req, res) => {
     
     const { userEmail } = req.body;
 
-
+    console.log(userEmail)
     // Get user from database
     const userSnapshot = await db.collection('users').where('email', '==', userEmail).get();
 
     if (userSnapshot.empty) {
-
+      console.log("EMPTY")
       return res.status(404).json({ error: 'User not found' });
     }
 
     const userData = userSnapshot.docs[0].data();
+    console.log(userData)
     let phoneNumber = userData.phone;
 
 
@@ -210,7 +211,7 @@ router.post('/send-whatsapp-prompt', async (req, res) => {
 
       return res.status(400).json({ error: 'User phone number not found' });
     }
-
+    console.log(phoneNumber)
     // Ensure phone number has country code (91 for India)
     if (!phoneNumber.startsWith('91') && !phoneNumber.startsWith('+91')) {
       phoneNumber = '91' + phoneNumber;

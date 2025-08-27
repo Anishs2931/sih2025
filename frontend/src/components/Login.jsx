@@ -266,6 +266,11 @@ const FixifyLandingPage = () => {
             {/* Login Form Only */}
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
+                  <div className="md:col-span-2">
+                    <div style={{ fontSize: '0.8em', color: '#888', marginBottom: '8px' }}>
+                      Demo Email: <b>test@gmail.com</b> &nbsp;|&nbsp; Demo Password: <b>12345678</b>
+                    </div>
+                  </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                   <div className="relative">
@@ -393,12 +398,12 @@ const FixifyLandingPage = () => {
               </p>
               
               <div className="flex flex-wrap gap-4">
-                <button
-                  onClick={() => setCurrentPage('auth')}
-                  className="bg-white text-blue-600 px-8 py-4 rounded-full font-semibold hover:bg-blue-50 transform hover:scale-105 transition-all shadow-lg"
-                >
-                  👤 Get Started Free
-                </button>
+                  <button
+                    onClick={() => setCurrentPage('auth')}
+                    className="bg-white text-blue-600 px-8 py-4 rounded-full font-semibold hover:bg-blue-50 transform hover:scale-105 transition-all shadow-lg"
+                  >
+                    👤 Get Started Free
+                  </button>
                 <button className="border-2 border-white text-white px-8 py-4 rounded-full font-semibold hover:bg-white hover:text-blue-600 transition-all">
                   ▶️ Watch Demo
                 </button>
