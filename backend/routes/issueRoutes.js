@@ -16,6 +16,8 @@ router.post("/detect", upload.single("image"), async (req, res) => {
     } else if (result.success) {
       res.status(200).json(result);
     } else {
+
+
       res.status(400).json(result);
     }
   } catch (error) {
