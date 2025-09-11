@@ -79,8 +79,8 @@ if (category === "electrical") {
   }
 
   if (bestTech) {
+    // Update with technician assignment, but keep the supervisor status
     await db.collection("tasks").doc(taskId).update({
-      status: "Assigned",
       assigned_technician: bestTech.id
     });
     // Fetch technician details for response
@@ -97,10 +97,9 @@ if (category === "electrical") {
       } : null
     };
   } else {
-    await db.collection("tasks").doc(taskId).update({
-      status: "Pending"
-    });
-
+    // Don't override status if supervisor is already assigned
+    // Just return that no technician was assigned
+    console.log('ℹ️ No technician available, but supervisor assignment remains');
     return { assigned: false };
   }
 }

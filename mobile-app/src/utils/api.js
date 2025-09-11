@@ -22,6 +22,14 @@ export const issueAPI = {
   reportIssue: (issueData) => api.post('/issue/add', issueData),
   detectIssue: (imageData) => api.post('/issue/detect', imageData),
   getAllIssues: () => api.get('/issue/all'),
+  getUserIssues: (userEmail) => api.get(`/issue/user/${encodeURIComponent(userEmail)}`),
+  getIssueById: (issueId) => api.get(`/issue/${issueId}`),
+  // Helper function to get image URL
+  getImageUrl: (pictureId) => {
+    const imageUrl = `${BASE_URL}/issue/image/${pictureId}`;
+    console.log('Getting image URL for pictureId:', pictureId, '-> URL:', imageUrl);
+    return imageUrl;
+  },
 };
 
 // User API calls
@@ -30,10 +38,10 @@ export const userAPI = {
   updateProfile: (userId, userData) => api.put(`/userData/${userId}`, userData),
 };
 
-// Technician API calls
-export const technicianAPI = {
-  assignTechnician: (issueId) => api.post('/technician/assign', { issueId }),
-  getTechnicianLocation: (technicianId) => api.get(`/technician/location/${technicianId}`),
+// Location API calls
+export const locationAPI = {
+  getMunicipality: (coordinates) => api.post('/location/get-municipality', coordinates),
+  getLocationByIP: () => api.get('/location/get-location-by-ip'),
 };
 
 export default api;

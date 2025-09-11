@@ -1,20 +1,28 @@
-const { assignTechnician } =require('../technician/assignTechnician')
 const {vision} =require('../aiPipeline/vision')
 const {addIssue}=require("../issue/addIssue")
 
 async function detect(imageBuffer, location) {
+    console.log('🔍 DEBUG detectIssue:');
+    console.log('  Input location:', JSON.stringify(location, null, 2));
+    
     if (location && typeof location.location === 'string') {
       try {
         location.location = JSON.parse(location.location);
+        console.log('  Parsed location.location from string');
       } catch (e) {
+        console.log('  Failed to parse location.location:', e.message);
       }
     }
     if (typeof location === 'string') {
       try {
         location = JSON.parse(location);
+        console.log('  Parsed entire location from string');
       } catch (e) {
+        console.log('  Failed to parse location:', e.message);
       }
     }
+    
+    console.log('  Final location object:', JSON.stringify(location, null, 2));
     try {
       let category = await vision(imageBuffer);
 
@@ -30,20 +38,11 @@ async function detect(imageBuffer, location) {
       }
 
 
-      let taskId = await addIssue(category, location);
-      let assignmentResult = await assignTechnician(taskId, category, location.location || location);
+      let taskId = await addIssue(category, location, []); // Pass empty array for report_images initially
 
       const db = require('../firebase');
       const taskDoc = await db.collection('tasks').doc(taskId).get();
       const taskData = taskDoc.exists ? taskDoc.data() : null;
-
-      const formatETA = (etaSeconds) => {
-        if (!etaSeconds) return 'Unknown';
-        const minutes = Math.round(etaSeconds / 60);
-        if (minutes < 60) return `${minutes} minutes`;
-        const hours = Math.round(minutes / 60);
-        return `${hours} hour${hours > 1 ? 's' : ''}`;
-      };
 
       const result = {
         success: true,
@@ -54,7 +53,7 @@ async function detect(imageBuffer, location) {
           issueType: category,
           title: `${category.charAt(0).toUpperCase() + category.slice(1)} Issue`,
           description: taskData?.instructions || `${category} issue reported via image detection`,
-          status: taskData?.status || 'Reported',
+          status: taskData?.status || 'pending',
           location: taskData?.userLocation || 'Location captured',
           floor: taskData?.floor || '',
           sector: taskData?.sector || '',
@@ -62,18 +61,10 @@ async function detect(imageBuffer, location) {
           dateReported: new Date().toISOString().split('T')[0],
           createdAt: taskData?.createdAt || new Date().toISOString(),
           priority: taskData?.priority || 'medium',
-          userEmail: taskData?.userEmail || location.userEmail
+          userEmail: taskData?.userEmail || location.userEmail,
+          assigned_supervisor: taskData?.assigned_supervisor || null
         },
-        assignment: {
-          assigned: assignmentResult.assigned,
-          technicianId: assignmentResult.technicianId || null,
-          technicianDetails: assignmentResult.technicianDetails || null,
-          eta: assignmentResult.assigned ? formatETA(assignmentResult.eta_seconds) : null,
-          etaSeconds: assignmentResult.eta_seconds || null
-        },
-        message: assignmentResult.assigned
-          ? `Issue detected as ${category}. Technician ${assignmentResult.technicianDetails?.name || 'assigned'} will arrive in ${formatETA(assignmentResult.eta_seconds)}.`
-          : `Issue detected as ${category}. No technician available at the moment. Your request has been queued.`
+        message: `${category.charAt(0).toUpperCase() + category.slice(1)} issue detected and reported successfully! ${taskData?.assigned_supervisor ? 'Supervisor has been assigned.' : 'Issue is pending supervisor assignment.'}`
       };
 
       return result;

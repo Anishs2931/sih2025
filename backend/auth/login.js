@@ -50,12 +50,14 @@ async function login(email, password, role) {
     return { 
       success: true, 
       user: {
-        id: userId,
+        id: userId, // Firebase document ID
+        userId: user.userId || `LEGACY_${userId}`, // Custom unique user ID (fallback for existing users)
         name: user.name,
         email: user.email,
         phone: user.phone,
-        address: user.address,
-        role: user.role || role
+        address: user.address || '',
+        role: user.role || role,
+        createdAt: user.createdAt || new Date().toISOString()
       }
     };
   } catch (error) {

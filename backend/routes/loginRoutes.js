@@ -1,8 +1,16 @@
 const express = require("express");
 const { login } = require("../auth/login");
 const db = require("../firebase");
+const crypto = require("crypto");
 
 const router = express.Router();
+
+// Function to generate unique user ID
+function generateUniqueUserId() {
+  const timestamp = Date.now().toString(36);
+  const randomBytes = crypto.randomBytes(4).toString('hex');
+  return `QT${timestamp}${randomBytes}`.toUpperCase();
+}
 
 router.post("/register", async (req, res) => {
   try {
@@ -69,7 +77,34 @@ router.post("/register", async (req, res) => {
       }
     }
 
+    // Generate unique user ID
+    const uniqueUserId = generateUniqueUserId();
+    
+    // Check if the generated ID already exists (very unlikely but good practice)
+    let isUniqueId = false;
+    let attempts = 0;
+    let currentUserId = uniqueUserId;
+    
+    while (!isUniqueId && attempts < 5) {
+      let idExists = false;
+      for (const collection of collections) {
+        const existingId = await db.collection(collection).where('userId', '==', currentUserId).get();
+        if (!existingId.empty) {
+          idExists = true;
+          break;
+        }
+      }
+      
+      if (!idExists) {
+        isUniqueId = true;
+      } else {
+        currentUserId = generateUniqueUserId();
+        attempts++;
+      }
+    }
+
     const userData = {
+      userId: currentUserId, // Custom unique ID for the user
       name: name.trim(),
       email: emailLower,
       password: password, // In production, hash this password
@@ -86,7 +121,8 @@ router.post("/register", async (req, res) => {
     res.json({
       success: true,
       message: "Registration successful! You can now login as a citizen.",
-      userId: userRef.id,
+      userId: currentUserId, // Return the custom user ID
+      firebaseId: userRef.id, // Also return Firebase document ID for internal use
       role: userRole
     });
 

@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../utils/theme';
 import { authAPI } from '../utils/api';
+import { useUser } from '../contexts/UserContext';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { login: loginUser } = useUser();
+  const [email, setEmail] = useState('citizen@gmail.com');
+  const [password, setPassword] = useState('12345678');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -26,7 +28,7 @@ export default function LoginScreen({ navigation }) {
 
   const roles = [
     { value: 'citizen', label: 'Citizen', description: 'Report issues and track progress' },
-    { value: 'supervisor', label: 'Supervisor', description: 'Manage issues and assign technicians' },
+    { value: 'supervisor', label: 'Supervisor', description: 'Manage issues and oversee work' },
     { value: 'admin', label: 'Admin', description: 'Full system access and management' },
   ];
 
@@ -53,7 +55,11 @@ export default function LoginScreen({ navigation }) {
         // Login logic
         const response = await authAPI.login({ email, password, role });
         if (response.data.success) {
-          Alert.alert('Success', 'Login successful!', [
+          // Store user data in context
+          const userData = response.data.user;
+          loginUser(userData);
+          
+          Alert.alert('Success', `Welcome back, ${userData.name}! User ID: ${userData.userId}`, [
             {
               text: 'OK',
               onPress: () => navigation.navigate('MainTabs'),
