@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, phone, address } = req.body;
+    const { name, email, password, phone, address, role } = req.body;
 
     if (!name || !email || !password || !phone) {
       return res.status(400).json({
@@ -14,6 +14,17 @@ router.post("/register", async (req, res) => {
         message: "Name, email, password, and phone are required"
       });
     }
+
+    // Only citizens can register through the app
+    if (role && role !== 'citizen') {
+      return res.status(400).json({
+        success: false,
+        message: "Only citizen accounts can be created through the app. Supervisor and admin accounts must be created by administrators."
+      });
+    }
+
+    // Set role to citizen by default
+    const userRole = 'citizen';
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -30,41 +41,53 @@ router.post("/register", async (req, res) => {
         message: "Please enter a valid 10-digit phone number"
       });
     }
-    const existingUserEmail = await db.collection('users').where('email', '==', email).get();
-    if (!existingUserEmail.empty) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this email already exists"
-      });
+
+    // Check for existing email across ALL collections (citizens, supervisors, admins)
+    const collections = ['citizens', 'supervisors', 'admins'];
+    const emailLower = email.toLowerCase().trim();
+    
+    for (const collection of collections) {
+      const existingUserEmail = await db.collection(collection).where('email', '==', emailLower).get();
+      if (!existingUserEmail.empty) {
+        return res.status(400).json({
+          success: false,
+          message: "An account with this email already exists"
+        });
+      }
     }
 
     const phoneWithCountryCode = '91' + phone; 
-    const existingUserPhone = await db.collection('users').where('phone', '==', phoneWithCountryCode).get();
-    if (!existingUserPhone.empty) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this phone number already exists"
-      });
+    
+    // Check for existing phone across ALL collections (citizens, supervisors, admins)
+    for (const collection of collections) {
+      const existingUserPhone = await db.collection(collection).where('phone', '==', phoneWithCountryCode).get();
+      if (!existingUserPhone.empty) {
+        return res.status(400).json({
+          success: false,
+          message: "An account with this phone number already exists"
+        });
+      }
     }
-
 
     const userData = {
       name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password: password, // Plain text (not secure)
+      email: emailLower,
+      password: password, // In production, hash this password
       phone: phoneWithCountryCode,
       address: address?.trim() || '',
-      role: 'user',
+      role: userRole, // Always 'citizen' for app registrations
       createdAt: new Date().toISOString(),
       isActive: true
     };
 
-    const userRef = await db.collection('users').add(userData);
+    // Store in citizens collection only
+    const userRef = await db.collection('citizens').add(userData);
 
     res.json({
       success: true,
-      message: "Registration successful! You can now login.",
-      userId: userRef.id
+      message: "Registration successful! You can now login as a citizen.",
+      userId: userRef.id,
+      role: userRole
     });
 
   } catch (error) {
@@ -80,60 +103,35 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || !role) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required"
+        message: "Email, password, and role are required"
       });
     }
 
-    if (role === 'user') {
-      const userSnapshot = await db.collection('users').where('email', '==', email.toLowerCase().trim()).get();
+    // Validate role
+    const validRoles = ['citizen', 'supervisor', 'admin'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role. Must be citizen, supervisor, or admin"
+      });
+    }
 
-      if (userSnapshot.empty) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid email or password"
-        });
-      }
-
-      const userData = userSnapshot.docs[0].data();
-
-      // Check if user is active (default to true if field doesn't exist)
-      if (userData.isActive === false) {
-        return res.status(401).json({
-          success: false,
-          message: "Account is deactivated. Please contact support."
-        });
-      }
-
-      if (userData.password !== password) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid email or password"
-        });
-      }
-
+    const result = await login(email, password, role);
+    
+    if (result.success) {
       res.json({
         success: true,
         message: "Login successful",
-        user: {
-          id: userSnapshot.docs[0].id,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          address: userData.address,
-          role: userData.role
-        }
+        user: result.user
       });
-
     } else {
-      let result = await login(email, password, role);
-      if (result.success) {
-        res.json({ success: true });
-      } else {
-        res.status(401).json({ success: false, message: result.message });
-      }
+      res.status(401).json({ 
+        success: false, 
+        message: result.message 
+      });
     }
 
   } catch (error) {

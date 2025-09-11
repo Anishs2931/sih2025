@@ -1,7 +1,21 @@
 const admin = require("firebase-admin");
 require('dotenv').config();
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG)
+// Prefer FIREBASE_CONFID (user-provided), fallback to FIREBASE_CONFIG
+let rawServiceAccount = process.env.FIREBASE_CONFID || process.env.FIREBASE_CONFIG;
+if (!rawServiceAccount) {
+    console.error('Firebase service account JSON not found. Set FIREBASE_CONFID or FIREBASE_CONFIG in .env');
+    throw new Error('Missing Firebase service account env');
+}
+
+let serviceAccount;
+try {
+    serviceAccount = JSON.parse(rawServiceAccount);
+} catch (e) {
+    console.error('Invalid Firebase service account JSON in env (FIREBASE_CONFID/FIREBASE_CONFIG):', e?.message);
+    throw e;
+}
+
 app = admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });

@@ -7,6 +7,7 @@ const loginRoutes = require("./routes/loginRoutes.js");
 const userRoutes = require("./routes/userRoutes.js");
 const userDataRoutes = require("./routes/userDataRoutes.js");
 const twilioRoutes = require("./routes/twilioRoutes.js");
+const adminRoutes = require("./routes/adminRoutes.js");
 
 const app = express();
 app.use(cors());
@@ -18,6 +19,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/auth", loginRoutes);
 app.use("/api/userData", userDataRoutes);
 app.use("/api/twilio", twilioRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get('/ping', (req, res) => {
   res.json({ message: 'Backend is alive!' });

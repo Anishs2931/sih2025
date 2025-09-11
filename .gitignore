@@ -2,6 +2,8 @@
 backend/.env
 frontend/.env
 
+# Frontend Directory (excluded from Git)
+frontend/
 
 # Firebase Service Account Key
 backend/serviceAccountKey.json

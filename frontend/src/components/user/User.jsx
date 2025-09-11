@@ -18,6 +18,7 @@ const FixifyUserDashboard = () => {
   const [tempIssuesDB, setTempIssuesDB] = useState([]); // temporary database for created issues
   const [statsUpdated, setStatsUpdated] = useState(false); // for visual feedback when stats update
   const [showStatsToast, setShowStatsToast] = useState(false); // for toast notification
+  const [isReporting, setIsReporting] = useState(false); // prevent double submissions
   const [issueForm, setIssueForm] = useState({
     location: '',
     images: [],
@@ -127,14 +128,17 @@ const FixifyUserDashboard = () => {
       showNotification('warning', 'Missing Information', 'Please add images and location to report the issue.');
       return;
     }
+  if (isReporting) return; // guard against rapid double-clicks
+  setIsReporting(true);
     try {
-      const imageFile = issueForm.images[0].file || null;
-      if (!imageFile) {
+  const imageFiles = (issueForm.images || []).map(i => i.file).filter(Boolean);
+  if (imageFiles.length === 0) {
         showNotification('error', 'Image Error', 'Image file missing. Please re-upload.');
         return;
       }
       const formData = new FormData();
-      formData.append('image', imageFile);
+  // Append all selected images so backend can upload them all to GCS
+  imageFiles.forEach(f => formData.append('images', f));
       // If location is an object, stringify it for backend and add user email
       if (typeof issueForm.location === 'object') {
         const locationWithEmail = { ...issueForm.location, userEmail: currentUser.email };
@@ -150,10 +154,9 @@ const FixifyUserDashboard = () => {
         method: 'POST',
         body: formData
       });
-      const result = await response.json();
-      console.log('Issue creation result:', result);
-      console.log('Response status:', response.status);
-
+  const result = await response.json();
+  console.log('Issue creation result:', result);
+  console.log('Response status:', response.status);
       if (response.status === 422 || result.noIssueDetected) {
         // Handle "no issue detected" case - show modal instead of continuing
         console.log('No issue detected, showing modal');
@@ -216,6 +219,8 @@ const FixifyUserDashboard = () => {
       }
     } catch (err) {
       showNotification('error', 'Network Error', 'Unable to connect to server. Please check your connection and try again.');
+    } finally {
+      setIsReporting(false);
     }
   };
 
@@ -775,11 +780,12 @@ const FixifyUserDashboard = () => {
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
                   onClick={handleDetectAndCreateIssue}
-                  className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+                  disabled={isReporting}
+                  className={`w-full sm:flex-1 px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all text-white ${isReporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'}`}
                 >
-                  Report Issue
+                  {isReporting ? 'Reporting…' : 'Report Issue'}
                 </button>
               </div>
             </div>
