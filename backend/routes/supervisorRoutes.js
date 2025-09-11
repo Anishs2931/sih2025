@@ -7,6 +7,130 @@ const {
     updateSupervisorStatus,
     getSupervisorById
 } = require('../supervisor/supervisorService');
+const db = require('../firebase');
+
+// Get supervisor tasks
+router.get('/tasks/:supervisorId', async (req, res) => {
+    try {
+        const { supervisorId } = req.params;
+        
+        const tasksRef = db.collection('tasks');
+        const snapshot = await tasksRef
+            .where('assignedSupervisor', '==', supervisorId)
+            .get();
+        
+        const tasks = [];
+        snapshot.forEach(doc => {
+            tasks.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Sort tasks by creation date in JavaScript since Firestore composite index isn't set up
+        tasks.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA; // Newest first
+        });
+        
+        res.json({
+            success: true,
+            tasks: tasks
+        });
+    } catch (error) {
+        console.error('Error fetching supervisor tasks:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch tasks',
+            error: error.message
+        });
+    }
+});
+
+// Get supervisor profile
+router.get('/profile/:supervisorId', async (req, res) => {
+    try {
+        const { supervisorId } = req.params;
+        const supervisor = await getSupervisorById(supervisorId);
+        
+        if (!supervisor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Supervisor not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            supervisor: supervisor
+        });
+    } catch (error) {
+        console.error('Error fetching supervisor profile:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch profile',
+            error: error.message
+        });
+    }
+});
+
+// Get supervisor work statistics
+router.get('/stats/:supervisorId', async (req, res) => {
+    try {
+        const { supervisorId } = req.params;
+        
+        const tasksRef = db.collection('tasks');
+        const snapshot = await tasksRef
+            .where('assignedSupervisor', '==', supervisorId)
+            .get();
+        
+        const tasks = [];
+        snapshot.forEach(doc => {
+            tasks.push({ id: doc.id, ...doc.data() });
+        });
+        
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter(task => task.status === 'resolved').length;
+        const pendingTasks = tasks.filter(task => task.status === 'pending').length;
+        const ongoingTasks = tasks.filter(task => task.status === 'ongoing').length;
+        
+        // Calculate monthly tasks
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const monthlyTasks = tasks.filter(task => {
+            const taskDate = new Date(task.createdAt);
+            return taskDate.getMonth() === currentMonth && taskDate.getFullYear() === currentYear;
+        }).length;
+        
+        // Calculate completion rate
+        const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        // Calculate weekly tasks
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const tasksThisWeek = tasks.filter(task => new Date(task.createdAt) >= oneWeekAgo).length;
+        
+        res.json({
+            success: true,
+            stats: {
+                totalTasks,
+                completedTasks,
+                pendingTasks,
+                ongoingTasks,
+                monthlyTasks,
+                completionRate,
+                tasksThisWeek,
+                averageResolutionTime: '2.5 days', // Placeholder
+                teamRating: '4.5/5' // Placeholder
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching supervisor stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch statistics',
+            error: error.message
+        });
+    }
+});
 
 // Create a new supervisor
 router.post('/create', async (req, res) => {

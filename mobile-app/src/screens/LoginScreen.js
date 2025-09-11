@@ -25,11 +25,12 @@ export default function LoginScreen({ navigation }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const roles = [
-    { value: 'citizen', label: 'Citizen', description: 'Report issues and track progress' },
-    { value: 'supervisor', label: 'Supervisor', description: 'Manage issues and oversee work' },
-    { value: 'admin', label: 'Admin', description: 'Full system access and management' },
+    { value: 'citizen', label: 'Citizen', description: 'Report issues and track progress (Default login provided)' },
+    { value: 'supervisor', label: 'Supervisor', description: 'Manage issues and oversee work (Default login provided)' },
+    { value: 'admin', label: 'Admin', description: 'Full system access and management (Default login provided)' },
   ];
 
   const handleAuth = async () => {
@@ -142,6 +143,19 @@ export default function LoginScreen({ navigation }) {
                 ]}
                 onPress={() => {
                   setRole(roleOption.value);
+                  
+                  // Set default credentials for supervisor role
+                  if (roleOption.value === 'supervisor') {
+                    setEmail('rajesh.electrical@hyderabad.gov.in');
+                    setPassword('password123');
+                  } else if (roleOption.value === 'citizen') {
+                    setEmail('citizen@gmail.com');
+                    setPassword('12345678');
+                  } else if (roleOption.value === 'admin') {
+                    setEmail('admin@quadratech.gov.in');
+                    setPassword('admin123');
+                  }
+                  
                   setShowRoleModal(false);
                 }}
               >
@@ -206,14 +220,24 @@ export default function LoginScreen({ navigation }) {
               autoCapitalize="none"
             />
             
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={colors.gray}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Password"
+                placeholderTextColor={colors.gray}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Text style={styles.eyeIcon}>
+                  {showPassword ? '🙈' : '👁️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             {!isLogin && (
               <>
@@ -246,6 +270,28 @@ export default function LoginScreen({ navigation }) {
 
             {/* Only show role selector for login */}
             {isLogin && <RoleSelector />}
+
+            {/* Show default credentials info for selected role */}
+            {isLogin && role && (
+              <View style={styles.credentialsInfoBox}>
+                <Text style={styles.credentialsInfoTitle}>Default Credentials:</Text>
+                {role === 'citizen' && (
+                  <Text style={styles.credentialsInfoText}>
+                    Email: citizen@gmail.com{'\n'}Password: 12345678
+                  </Text>
+                )}
+                {role === 'supervisor' && (
+                  <Text style={styles.credentialsInfoText}>
+                    Email: rajesh.electrical@hyderabad.gov.in{'\n'}Password: password123
+                  </Text>
+                )}
+                {role === 'admin' && (
+                  <Text style={styles.credentialsInfoText}>
+                    Email: admin@quadratech.gov.in{'\n'}Password: admin123
+                  </Text>
+                )}
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
@@ -340,6 +386,29 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     color: colors.black,
     marginBottom: spacing.md,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.secondary,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.tertiary,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: typography.sizes.md,
+    color: colors.black,
+  },
+  eyeButton: {
+    padding: spacing.md,
+    paddingLeft: spacing.sm,
+  },
+  eyeIcon: {
+    fontSize: typography.sizes.lg,
   },
   infoBox: {
     backgroundColor: colors.tertiary,
@@ -484,5 +553,25 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     color: colors.primary,
     fontWeight: typography.weights.bold,
+  },
+  credentialsInfoBox: {
+    backgroundColor: colors.secondary,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.tertiary,
+  },
+  credentialsInfoTitle: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.semibold,
+    color: colors.black,
+    marginBottom: spacing.xs,
+  },
+  credentialsInfoText: {
+    fontSize: typography.sizes.sm,
+    color: colors.darkGray,
+    lineHeight: 18,
+    fontFamily: 'monospace',
   },
 });

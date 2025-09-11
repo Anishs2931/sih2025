@@ -9,7 +9,10 @@ export const colors = {
   darkCharcoal: '#404040',
   black: '#262626',
   darkBlack: '#171717',
-  deepBlack: '#0a0a0a'
+  deepBlack: '#0a0a0a',
+  white: '#ffffff',
+  error: '#ff3b30',
+  border: '#e5e5e5'
 };
 
 export const spacing = {

@@ -21,6 +21,10 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import IssueDetailScreen from './src/screens/IssueDetailScreen';
 import Dashboard from './src/screens/Dashboard';
+import SupervisorDashboard from './src/screens/SupervisorDashboard';
+import SupervisorTaskList from './src/screens/SupervisorTaskList';
+import SupervisorTaskDetail from './src/screens/SupervisorTaskDetail';
+import SupervisorProfile from './src/screens/SupervisorProfile';
 
 // Import theme and context
 import { colors } from './src/utils/theme';
@@ -30,9 +34,88 @@ import { LocationProvider } from './src/contexts/LocationContext';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Supervisor Tab Navigator
+function SupervisorTabs({ navigation, handleLogout }) {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarStyle: {
+          backgroundColor: colors.primary,
+          borderTopColor: colors.tertiary,
+          borderTopWidth: 1,
+        },
+        tabBarActiveTintColor: colors.black,
+        tabBarInactiveTintColor: colors.gray,
+        headerStyle: {
+          backgroundColor: colors.primary,
+          shadowColor: 'transparent',
+          elevation: 0,
+        },
+        headerTintColor: colors.black,
+      }}
+    >
+      <Tab.Screen 
+        name="SupervisorDashboard" 
+        component={SupervisorDashboard}
+        options={{
+          tabBarLabel: 'Dashboard',
+          headerTitle: 'Supervisor Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>🏠</Text>
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="SupervisorTaskList" 
+        component={SupervisorTaskList}
+        options={{
+          tabBarLabel: 'Tasks',
+          headerTitle: 'Task Management',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>�</Text>
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="SupervisorProfile" 
+        component={SupervisorProfile}
+        options={{
+          tabBarLabel: 'Profile',
+          headerTitle: 'Supervisor Profile',
+          headerRight: () => (
+            <TouchableOpacity 
+              onPress={handleLogout}
+              style={{ 
+                marginRight: 15, 
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                backgroundColor: colors.secondary,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: colors.tertiary
+              }}
+            >
+              <Text style={{ 
+                fontSize: 14, 
+                color: colors.black,
+                fontWeight: '500'
+              }}>
+                Logout
+              </Text>
+            </TouchableOpacity>
+          ),
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>👤</Text>
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 // Tab Navigator for authenticated users
 function MainTabs({ navigation }) {
-  const { logout: logoutUser } = useUser();
+  const { logout: logoutUser, user } = useUser();
   
   const handleLogout = () => {
     Alert.alert(
@@ -58,6 +141,11 @@ function MainTabs({ navigation }) {
       ]
     );
   };
+
+  // Check if user is supervisor to show different navigation
+  if (user?.role === 'supervisor') {
+    return <SupervisorTabs navigation={navigation} handleLogout={handleLogout} />;
+  }
 
   return (
     <Tab.Navigator
@@ -192,6 +280,11 @@ export default function App() {
               <Stack.Screen 
                 name="IssueDetail" 
                 component={IssueDetailScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen 
+                name="SupervisorTaskDetail" 
+                component={SupervisorTaskDetail}
                 options={{ headerShown: false }}
               />
             </Stack.Navigator>

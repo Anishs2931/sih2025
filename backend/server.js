@@ -9,7 +9,11 @@ const twilioRoutes = require("./routes/twilioRoutes.js");
 const adminRoutes = require("./routes/adminRoutes.js");
 const locationRoutes = require("./routes/locationRoutes.js");
 const supervisorRoutes = require("./routes/supervisorRoutes.js");
+const taskRoutes = require("./routes/taskRoutes.js");
 const testRoutes = require("./routes/testRoutes.js");
+const imageRoutes = require("./routes/imageRoutes.js");
+const uploadRoutes = require("./routes/uploadRoutes.js");
+const whatsappRoutes = require("./routes/whatsappRoutes.js");
 
 const app = express();
 app.use(cors());
@@ -23,7 +27,11 @@ app.use("/api/twilio", twilioRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/supervisor", supervisorRoutes);
+app.use("/api/tasks", taskRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/images", imageRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/whatsapp", whatsappRoutes);
 
 app.get('/ping', (req, res) => {
   res.json({ message: 'Backend is alive!' });
@@ -31,6 +39,7 @@ app.get('/ping', (req, res) => {
 
 
 const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const HOST = '0.0.0.0'; // Listen on all interfaces
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
 });

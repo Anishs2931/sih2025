@@ -37,12 +37,52 @@ async function detect(imageBuffer, location) {
         };
       }
 
+      // Upload image to Google Cloud Storage and get pictureId
+      let reportImageIds = [];
+      try {
+        const { getBucket } = require('../gcs');
+        const crypto = require('crypto');
+        const bucket = getBucket();
+        
+        // Generate unique pictureId for the image
+        const pictureId = (crypto.randomUUID && typeof crypto.randomUUID === 'function')
+          ? crypto.randomUUID()
+          : crypto.createHash("sha1").update(imageBuffer).digest("hex");
+        
+        const objectPath = `${pictureId}.jpg`; // Default to jpg extension
+        const gcsFile = bucket.file(objectPath);
 
-      let taskId = await addIssue(category, location, []); // Pass empty array for report_images initially
+        const [exists] = await gcsFile.exists();
+        if (!exists) {
+          await gcsFile.save(imageBuffer, {
+            contentType: "image/jpeg",
+            resumable: false,
+            metadata: { cacheControl: "public, max-age=31536000" }
+          });
+          console.log(`📸 Uploaded WhatsApp image to gs://${bucket.name}/${objectPath}`);
+        } else {
+          console.log(`📸 Reusing existing WhatsApp image at gs://${bucket.name}/${objectPath}`);
+        }
+
+        reportImageIds.push(pictureId);
+        console.log('📸 Report image IDs created:', reportImageIds);
+      } catch (uploadError) {
+        console.error('❌ Failed to upload image to GCS:', uploadError.message);
+        // Continue without image if upload fails
+      }
+
+      let taskId = await addIssue(category, location, reportImageIds); // Pass actual image IDs
 
       const db = require('../firebase');
       const taskDoc = await db.collection('tasks').doc(taskId).get();
       const taskData = taskDoc.exists ? taskDoc.data() : null;
+
+      // Debug: Check if images were properly stored
+      console.log('📸 Task image storage check:');
+      console.log('  Task ID:', taskId);
+      console.log('  Report images in task:', taskData?.report_images);
+      console.log('  Report images count:', taskData?.report_images?.length || 0);
+      console.log('  Legacy pictureIds:', taskData?.pictureIds);
 
       const result = {
         success: true,
@@ -64,7 +104,7 @@ async function detect(imageBuffer, location) {
           userEmail: taskData?.userEmail || location.userEmail,
           assigned_supervisor: taskData?.assigned_supervisor || null
         },
-        message: `${category.charAt(0).toUpperCase() + category.slice(1)} issue detected and reported successfully! ${taskData?.assigned_supervisor ? 'Supervisor has been assigned.' : 'Issue is pending supervisor assignment.'}`
+        message: `${category.charAt(0).toUpperCase() + category.slice(1)} issue detected and reported successfully! ${taskData?.assigned_supervisor ? 'Supervisor has been assigned.' : 'Issue is pending supervisor assignment.'} ${reportImageIds.length > 0 ? `📸 ${reportImageIds.length} image(s) attached.` : ''}`
       };
 
       return result;

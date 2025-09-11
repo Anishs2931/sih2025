@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../firebase');
 const admin = require('firebase-admin');
+const axios = require('axios');
 const { getIssueDepartment } = require('../utils/departmentMapper');
 const { getSupervisorsByMunicipalityAndDepartment } = require('../supervisor/supervisorService');
 
@@ -12,7 +13,26 @@ async function addIssue(category, location, reportImages = []){
 
     let taskId = uuidv4();
     try{
-      let userLocation = typeof location === 'object' ? location.location : location;
+      // Handle userLocation extraction more carefully
+      let userLocation = '';
+      let coordinates = null; // Store coordinates for reverse geocoding
+      if (typeof location === 'string') {
+        userLocation = location;
+      } else if (typeof location === 'object') {
+        if (typeof location.location === 'string') {
+          userLocation = location.location;
+        } else if (typeof location.userLocation === 'string') {
+          userLocation = location.userLocation;
+        } else if (location.location && typeof location.location === 'object' && (location.location.lat && location.location.lng)) {
+          // Handle coordinate objects - don't convert to string yet, keep coordinates for geocoding
+          coordinates = { lat: location.location.lat, lng: location.location.lng };
+          userLocation = ''; // Will be filled by geocoding
+          console.log('🗺️ Found coordinates, will use reverse geocoding:', coordinates);
+        } else {
+          userLocation = ''; // Will be filled by geocoding or fallback
+        }
+      }
+      
       let floor = typeof location === 'object' ? (location.floor || '') : '';
       let sector = typeof location === 'object' ? (location.sector || '') : '';
       let instructions = typeof location === 'object' ? (location.instructions || '') : '';
@@ -58,9 +78,9 @@ async function addIssue(category, location, reportImages = []){
         userEmail = userEmail ? String(userEmail) : '';
       }
       
-      // Validate required fields
+      // Validate required fields - userLocation can be empty if we have coordinates for geocoding
       if (!userLocation || userLocation.trim() === '') {
-        throw new Error('User location is required');
+        console.log('⚠️ No userLocation string provided, will rely on geocoding for address');
       }
       
       // Make email optional for testing, use default if not provided
@@ -74,28 +94,34 @@ async function addIssue(category, location, reportImages = []){
       // Handle nested location structure from detectIssue and extract location data
       let municipality = '';
       let state = '';
-      let coordinates = null;
+      // coordinates variable already declared above
       
       if (typeof location === 'object') {
-        // Extract municipality
+        // Extract municipality - prioritize direct municipality field
         if (location.municipality) {
           municipality = typeof location.municipality === 'string' 
             ? location.municipality 
             : String(location.municipality);
+          console.log('📍 Using direct municipality from location.municipality:', municipality);
         } else if (location.location && typeof location.location === 'object' && location.location.municipality) {
           municipality = typeof location.location.municipality === 'string' 
             ? location.location.municipality 
             : String(location.location.municipality);
-          // Also update other fields from nested structure
-          userLocation = location.location.location || userLocation;
-          instructions = location.location.instructions || instructions;
+          // Only update userLocation if it's a string (not coordinates object)
+          if (location.location.location && typeof location.location.location === 'string') {
+            userLocation = location.location.location;
+          }
+          if (location.location.instructions && typeof location.location.instructions === 'string') {
+            instructions = location.location.instructions;
+          }
         }
 
-        // Extract state
+        // Extract state - prioritize direct state field
         if (location.state) {
           state = typeof location.state === 'string' 
             ? location.state 
             : String(location.state);
+          console.log('🏛️ Using direct state from location.state:', state);
         } else if (location.location && typeof location.location === 'object' && location.location.state) {
           state = typeof location.location.state === 'string' 
             ? location.location.state 
@@ -107,6 +133,9 @@ async function addIssue(category, location, reportImages = []){
           coordinates = location.coordinates;
         } else if (location.location && location.location.coordinates) {
           coordinates = location.location.coordinates;
+        } else if (location.location && location.location.lat && location.location.lng) {
+          // Handle lat/lng format
+          coordinates = { lat: location.location.lat, lng: location.location.lng };
         }
       }
 
@@ -120,9 +149,10 @@ async function addIssue(category, location, reportImages = []){
 
       // If municipality or state is missing, try to extract from userLocation string
       if ((!municipality || municipality.trim() === '' || !state || state.trim() === '') && userLocation) {
-        console.log('🌍 Attempting to extract location data from userLocation string:', userLocation);
-        
-        // Parse userLocation string to extract municipality and state
+        if (typeof userLocation === 'string') {
+          console.log('🌍 Attempting to extract location data from userLocation string:', userLocation);
+          
+          // Parse userLocation string to extract municipality and state
         const locationParts = userLocation.split(',').map(part => part.trim());
         
         if (!municipality || municipality.trim() === '') {
@@ -159,7 +189,133 @@ async function addIssue(category, location, reportImages = []){
             }
           }
         }
+        } else {
+          console.log('🚫 userLocation is not a string, skipping string parsing. Type:', typeof userLocation, 'Value:', userLocation);
+        }
       }
+
+      // If municipality or state is still missing and we have coordinates, try reverse geocoding
+      if ((!municipality || municipality.trim() === '' || !state || state.trim() === '') && 
+          ((location && location.location && location.location.lat && location.location.lng) || 
+           (coordinates && coordinates.lat && coordinates.lng))) {
+        
+        const coordsToUse = coordinates || location.location;
+        console.log('🌍 Attempting reverse geocoding for coordinates:', coordsToUse);
+        
+        try {
+          const axios = require('axios');
+          const lat = parseFloat(coordsToUse.lat);
+          const lng = parseFloat(coordsToUse.lng);
+          
+          // Use OpenStreetMap Nominatim API for reverse geocoding (free alternative to Google)
+          const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
+            params: {
+              format: 'json',
+              lat: lat,
+              lon: lng,
+              addressdetails: 1,
+              zoom: 10
+            },
+            headers: {
+              'User-Agent': 'Fixify-Infrastructure-App/1.0'
+            }
+          });
+          
+          if (response.data && response.data.address) {
+            const address = response.data.address;
+            console.log('🗺️ Reverse geocoding result:', JSON.stringify(address, null, 2));
+            
+            // Extract municipality (city, town, or village)
+            if (!municipality || municipality.trim() === '') {
+              const municipalityValue = address.city || address.town || address.village || 
+                           address.suburb || address.neighbourhood || '';
+              console.log('🔍 Geocoding municipality extraction:');
+              console.log('  Raw municipalityValue:', municipalityValue, 'Type:', typeof municipalityValue);
+              municipality = typeof municipalityValue === 'string' ? municipalityValue : String(municipalityValue || '');
+              console.log('  Final municipality after conversion:', municipality, 'Type:', typeof municipality);
+              if (municipality) {
+                console.log('📍 Extracted municipality from geocoding:', municipality);
+              }
+            }
+            
+            // Extract state
+            if (!state || state.trim() === '') {
+              const stateValue = address.state || address.state_district || '';
+              state = typeof stateValue === 'string' ? stateValue : String(stateValue || '');
+              if (state) {
+                console.log('🏛️ Extracted state from geocoding:', state);
+              }
+            }
+            
+            // If we still don't have municipality, use the city from display_name
+            if ((!municipality || municipality.trim() === '') && response.data.display_name) {
+              const displayParts = response.data.display_name.split(',').map(p => p.trim());
+              // Try to find a city-like name in the display name
+              for (const part of displayParts.slice(1, 4)) { // Skip first part (usually street)
+                if (part && part.length > 2 && !part.match(/^\d+$/)) {
+                  municipality = part;
+                  console.log('📍 Extracted municipality from display_name:', municipality);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (geocodeError) {
+          console.error('❌ Reverse geocoding failed:', geocodeError.message);
+          // Continue with fallback values
+        }
+      }
+
+      // Update userLocation if we got municipality and state from geocoding
+      if (municipality && state && (!userLocation || userLocation.trim() === '')) {
+        userLocation = `${municipality}, ${state}`;
+        console.log('📍 Updated userLocation from geocoding:', userLocation);
+      }
+
+      // If we still don't have municipality or state, use fallback values based on coordinates
+      if ((!municipality || municipality.trim() === '' || !state || state.trim() === '') && 
+          location && location.location && 
+          location.location.lat && location.location.lng) {
+        
+        const lat = parseFloat(location.location.lat);
+        const lng = parseFloat(location.location.lng);
+        
+        // Basic fallback based on coordinate ranges for major Indian cities
+        if (!municipality || municipality.trim() === '') {
+          if (lat >= 17.3 && lat <= 17.6 && lng >= 78.2 && lng <= 78.7) {
+            municipality = 'Hyderabad';
+            if (!state || state.trim() === '') state = 'Telangana';
+          } else if (lat >= 28.4 && lat <= 28.8 && lng >= 76.8 && lng <= 77.4) {
+            municipality = 'New Delhi';
+            if (!state || state.trim() === '') state = 'Delhi';
+          } else if (lat >= 19.0 && lat <= 19.3 && lng >= 72.7 && lng <= 73.1) {
+            municipality = 'Mumbai';
+            if (!state || state.trim() === '') state = 'Maharashtra';
+          } else if (lat >= 12.8 && lat <= 13.2 && lng >= 77.4 && lng <= 77.8) {
+            municipality = 'Bangalore';
+            if (!state || state.trim() === '') state = 'Karnataka';
+          } else if (lat >= 13.0 && lat <= 13.2 && lng >= 80.1 && lng <= 80.4) {
+            municipality = 'Chennai';
+            if (!state || state.trim() === '') state = 'Tamil Nadu';
+          } else {
+            // Generic fallback
+            municipality = 'Unknown City';
+            if (!state || state.trim() === '') state = 'Unknown State';
+          }
+          console.log('🎯 Used coordinate-based fallback - Municipality:', municipality, 'State:', state);
+        }
+      }
+
+      // Debug municipality value before string conversion
+      console.log('🔍 Pre-conversion check - Municipality:', municipality, 'Type:', typeof municipality);
+      console.log('🔍 Pre-conversion check - State:', state, 'Type:', typeof state);
+
+      // Ensure municipality and state are proper strings before final validation
+      municipality = typeof municipality === 'string' ? municipality : String(municipality || '');
+      state = typeof state === 'string' ? state : String(state || '');
+      
+      console.log('🔍 Final type check - Municipality type:', typeof municipality, 'Value:', municipality);
+      console.log('🔍 Final type check - State type:', typeof state, 'Value:', state);
 
       // Final validation - municipality and state are now mandatory
       if (!municipality || municipality.trim() === '') {
@@ -282,12 +438,115 @@ async function addIssue(category, location, reportImages = []){
       });
 
       await db.collection("tasks").doc(taskId).set(task);
+      
+      // Send WhatsApp notifications after successful task creation
+      try {
+        await sendIssueCreatedNotifications(taskId, task);
+      } catch (notificationError) {
+        console.log('Failed to send WhatsApp notifications:', notificationError.message);
+        // Don't fail the issue creation if notifications fail
+      }
+      
       return taskId
     }
     catch(err){
       console.error('Error creating issue:', err);
       throw err; 
     }
+}
+
+// =====================
+// WhatsApp Notification Function
+// =====================
+
+async function sendIssueCreatedNotifications(taskId, taskData) {
+  try {
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? 'https://your-api-domain.com' 
+      : 'http://localhost:3000';
+
+    // Notify user about issue registration
+    if (taskData.userEmail && taskData.userEmail !== 'anonymous@example.com') {
+      try {
+        // Get technician name if assigned
+        let technicianName = 'To be assigned';
+        let eta = 'TBD';
+        
+        if (taskData.assigned_technician) {
+          const techDoc = await db.collection('technicians').doc(taskData.assigned_technician).get();
+          if (techDoc.exists) {
+            const techData = techDoc.data();
+            technicianName = techData.name || 'Assigned';
+            eta = 'Within 2-4 hours'; // Default ETA
+          }
+        }
+
+        await axios.post(`${baseURL}/api/whatsapp/notify-issue-created`, {
+          userEmail: taskData.userEmail,
+          issueId: taskId,
+          category: taskData.category,
+          description: taskData.instructions || `${taskData.category} issue detected`,
+          technicianName: technicianName,
+          eta: eta
+        });
+
+        console.log(`✅ WhatsApp notification sent to user: ${taskData.userEmail}`);
+      } catch (error) {
+        console.log(`Failed to notify user ${taskData.userEmail}:`, error.message);
+      }
+    }
+
+    // Notify assigned technician
+    if (taskData.assigned_technician) {
+      try {
+        const techDoc = await db.collection('technicians').doc(taskData.assigned_technician).get();
+        if (techDoc.exists) {
+          const techData = techDoc.data();
+          
+          await axios.post(`${baseURL}/api/whatsapp/notify-technician-assignment`, {
+            technicianEmail: techData.email,
+            issueId: taskId,
+            category: taskData.category,
+            description: taskData.instructions || `${taskData.category} issue reported`,
+            userPhone: 'Contact via app', // For privacy, don't share user phone directly
+            address: taskData.userLocation,
+            priority: taskData.priority || 'normal'
+          });
+
+          console.log(`✅ WhatsApp notification sent to technician: ${techData.email}`);
+        }
+      } catch (error) {
+        console.log(`Failed to notify technician:`, error.message);
+      }
+    }
+
+    // Notify assigned supervisor
+    if (taskData.assigned_supervisor) {
+      try {
+        const supDoc = await db.collection('users').doc(taskData.assigned_supervisor).get();
+        if (supDoc.exists) {
+          const supData = supDoc.data();
+          
+          await axios.post(`${baseURL}/api/whatsapp/notify-supervisor-task`, {
+            supervisorEmail: supData.email,
+            taskId: taskId,
+            technicianName: 'To be assigned',
+            issueCount: 1,
+            area: taskData.userLocation,
+            action: 'created'
+          });
+
+          console.log(`✅ WhatsApp notification sent to supervisor: ${supData.email}`);
+        }
+      } catch (error) {
+        console.log(`Failed to notify supervisor:`, error.message);
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in sendIssueCreatedNotifications:', error);
+    throw error;
+  }
 }
 
 module.exports={addIssue}

@@ -384,17 +384,6 @@ const IssueDetailScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        {/* Bills Section - Future implementation */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Bills & Documents</Text>
-          <View style={styles.emptySection}>
-            <Text style={styles.emptyIcon}>📄</Text>
-            <Text style={styles.emptyText}>
-              Bills and documents will be uploaded by the supervisor during work progress
-            </Text>
-          </View>
-        </View>
-
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
