@@ -5,11 +5,12 @@ const { addIssue } = require('../issue/addIssue');
 // Test route for issue assignment
 router.post('/test-assignment', async (req, res) => {
     try {
-        const { issueType, municipality } = req.body;
+        const { issueType, municipality, state } = req.body;
         
         const testLocation = {
             location: "Test Address, Test Street",
             municipality: municipality || "Hyderabad",
+            state: state || "Telangana",
             instructions: "Test issue for supervisor assignment",
             email: "test@example.com"
         };

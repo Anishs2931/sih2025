@@ -3,8 +3,10 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const admin = require("firebase-admin");
 const upload = multer();
 const { detect } = require("../issue/detectIssue");
+const analyticsService = require("../analytics/analyticsService");
 // Google Cloud Storage (GCS) direct client
 const { getBucket } = require("../gcs");
 const db = require("../firebase");
@@ -146,6 +148,41 @@ router.get("/user/:userEmail", async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching user issues:", error);
     res.status(500).json({ success: false, message: "Failed to fetch issues", error: error.message });
+  }
+});
+
+// Analytics endpoint - MUST be before /:issueId route to avoid conflicts
+router.get("/analytics", async (req, res) => {
+  try {
+    const { timePeriod, location, municipality, state } = req.query;
+    
+    console.log('📊 Analytics request:', { timePeriod, location, municipality, state });
+    
+    const analytics = await analyticsService.getAnalytics({
+      timePeriod: timePeriod || '7days',
+      location: location || 'municipality',
+      municipality: municipality || '',
+      state: state || ''
+    });
+    
+    res.status(200).json({
+      success: true,
+      analytics,
+      filters: {
+        timePeriod: timePeriod || '7days',
+        location: location || 'municipality',
+        municipality: municipality || '',
+        state: state || ''
+      }
+    });
+    
+  } catch (error) {
+    console.error("❌ Error fetching analytics:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch analytics data",
+      error: error.message 
+    });
   }
 });
 
@@ -309,10 +346,12 @@ router.post("/initiate/:taskId", upload.any(), async (req, res) => {
     }
 
     // Update task with initiation images and status
+    const initiatedTimestamp = admin.firestore.Timestamp.now();
     await db.collection('tasks').doc(taskId).update({
       initiation_images: initiationImageIds,
       status: 'ongoing',
-      initiatedAt: new Date().toISOString()
+      initiated_at: initiatedTimestamp,
+      initiatedAt: initiatedTimestamp.toDate().toISOString() // Legacy support
     });
 
     res.status(200).json({ 
@@ -364,10 +403,12 @@ router.post("/complete/:taskId", upload.any(), async (req, res) => {
     }
 
     // Update task with completion images and status
+    const completedTimestamp = admin.firestore.Timestamp.now();
     await db.collection('tasks').doc(taskId).update({
       finished_images: finishedImageIds,
       status: 'completed',
-      completedAt: new Date().toISOString()
+      completed_at: completedTimestamp,
+      completedAt: completedTimestamp.toDate().toISOString() // Legacy support
     });
 
     res.status(200).json({ 
@@ -419,9 +460,11 @@ router.post("/bills/:taskId", upload.any(), async (req, res) => {
     }
 
     // Update task with bill images
+    const billsTimestamp = admin.firestore.Timestamp.now();
     await db.collection('tasks').doc(taskId).update({
       bill_images: billImageIds,
-      billsUploadedAt: new Date().toISOString()
+      bills_uploaded_at: billsTimestamp,
+      billsUploadedAt: billsTimestamp.toDate().toISOString() // Legacy support
     });
 
     res.status(200).json({ 

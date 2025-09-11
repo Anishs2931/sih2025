@@ -24,6 +24,7 @@ export const issueAPI = {
   getAllIssues: () => api.get('/issue/all'),
   getUserIssues: (userEmail) => api.get(`/issue/user/${encodeURIComponent(userEmail)}`),
   getIssueById: (issueId) => api.get(`/issue/${issueId}`),
+  getAnalytics: (params) => api.get('/issue/analytics', { params }),
   // Helper function to get image URL
   getImageUrl: (pictureId) => {
     const imageUrl = `${BASE_URL}/issue/image/${pictureId}`;

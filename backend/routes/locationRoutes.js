@@ -147,11 +147,47 @@ router.post("/get-municipality", async (req, res) => {
       }
     }
 
+    // Enhanced state extraction from formatted address if not found
+    if (!state && results[0]?.formatted_address) {
+      const fullAddress = results[0].formatted_address;
+      const indianStates = [
+        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+        'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
+        'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim',
+        'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand',
+        'West Bengal', 'Delhi'
+      ];
+      
+      for (const stateName of indianStates) {
+        if (fullAddress.toLowerCase().includes(stateName.toLowerCase())) {
+          state = stateName;
+          console.log('🏛️ Extracted state from formatted address:', state);
+          break;
+        }
+      }
+    }
+
+    // Validation: require both municipality and state
+    if (!municipality || municipality === 'Unknown') {
+      return res.status(400).json({
+        success: false,
+        message: "Could not determine municipality from these coordinates. Please provide a more specific location."
+      });
+    }
+
+    if (!state || state === 'Unknown') {
+      return res.status(400).json({
+        success: false,
+        message: "Could not determine state from these coordinates. Please ensure you're within India and try again."
+      });
+    }
+
     const locationData = {
-      municipality: municipality || 'Unknown',
-      district: district || municipality || 'Unknown',
-      state: state || 'Unknown',
-      country: country || 'Unknown',
+      municipality: municipality,
+      district: district || municipality,
+      state: state,
+      country: country || 'India',
       pincode: pincode || null,
       fullAddress: results[0]?.formatted_address || 'Address not available',
       coordinates: {

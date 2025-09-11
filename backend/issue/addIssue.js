@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../firebase');
+const admin = require('firebase-admin');
 const { getIssueDepartment } = require('../utils/departmentMapper');
 const { getSupervisorsByMunicipalityAndDepartment } = require('../supervisor/supervisorService');
 
@@ -70,9 +71,13 @@ async function addIssue(category, location, reportImages = []){
         console.log('✅ User email found:', userEmail);
       }
       
-      // Handle nested location structure from detectIssue
+      // Handle nested location structure from detectIssue and extract location data
       let municipality = '';
+      let state = '';
+      let coordinates = null;
+      
       if (typeof location === 'object') {
+        // Extract municipality
         if (location.municipality) {
           municipality = typeof location.municipality === 'string' 
             ? location.municipality 
@@ -85,25 +90,98 @@ async function addIssue(category, location, reportImages = []){
           userLocation = location.location.location || userLocation;
           instructions = location.location.instructions || instructions;
         }
+
+        // Extract state
+        if (location.state) {
+          state = typeof location.state === 'string' 
+            ? location.state 
+            : String(location.state);
+        } else if (location.location && typeof location.location === 'object' && location.location.state) {
+          state = typeof location.location.state === 'string' 
+            ? location.location.state 
+            : String(location.location.state);
+        }
+
+        // Extract coordinates for fallback location lookup
+        if (location.coordinates) {
+          coordinates = location.coordinates;
+        } else if (location.location && location.location.coordinates) {
+          coordinates = location.location.coordinates;
+        }
       }
-      
-      // Ensure municipality is a string and validate
+
+      // Ensure municipality and state are strings
       if (typeof municipality !== 'string') {
         municipality = municipality ? String(municipality) : '';
       }
-      
-      // For now, make municipality optional with a default value
-      if (!municipality || municipality.trim() === '') {
-        municipality = 'Unknown'; // Default value instead of throwing error
-        console.log('⚠️ No municipality provided, using default value');
+      if (typeof state !== 'string') {
+        state = state ? String(state) : '';
       }
+
+      // If municipality or state is missing, try to extract from userLocation string
+      if ((!municipality || municipality.trim() === '' || !state || state.trim() === '') && userLocation) {
+        console.log('🌍 Attempting to extract location data from userLocation string:', userLocation);
+        
+        // Parse userLocation string to extract municipality and state
+        const locationParts = userLocation.split(',').map(part => part.trim());
+        
+        if (!municipality || municipality.trim() === '') {
+          // Look for municipality in the location string (usually the larger city name)
+          for (let i = 0; i < Math.min(locationParts.length, 4); i++) {
+            const part = locationParts[i];
+            if (part && part.length > 2 && !part.match(/^\d+$/) && 
+                !part.toLowerCase().includes('nagar') && 
+                !part.toLowerCase().includes('road') &&
+                !part.toLowerCase().includes('street')) {
+              municipality = part;
+              console.log('📍 Extracted municipality from location string:', municipality);
+              break;
+            }
+          }
+        }
+
+        if (!state || state.trim() === '') {
+          // Look for Indian state names in the location string
+          const indianStates = [
+            'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+            'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+            'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
+            'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim',
+            'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand',
+            'West Bengal', 'Delhi'
+          ];
+          
+          for (const stateName of indianStates) {
+            if (userLocation.toLowerCase().includes(stateName.toLowerCase())) {
+              state = stateName;
+              console.log('🏛️ Extracted state from location string:', state);
+              break;
+            }
+          }
+        }
+      }
+
+      // Final validation - municipality and state are now mandatory
+      if (!municipality || municipality.trim() === '') {
+        throw new Error('Municipality is required. Please provide a valid location.');
+      }
+      
+      if (!state || state.trim() === '') {
+        throw new Error('State is required. Please provide a valid location with state information.');
+      }
+
+      // Clean up municipality and state values
+      municipality = municipality.trim();
+      state = state.trim();
       
       // Debug logging
       console.log('🔍 DEBUG addIssue:');
       console.log('  Category:', category);
       console.log('  Location object:', JSON.stringify(location, null, 2));
       console.log('  Extracted municipality:', municipality);
+      console.log('  Extracted state:', state);
       console.log('  Municipality type:', typeof municipality);
+      console.log('  State type:', typeof state);
       console.log('  User location:', userLocation);
       console.log('  Instructions:', instructions);
       console.log('  User email:', userEmail);
@@ -119,8 +197,10 @@ async function addIssue(category, location, reportImages = []){
       
       console.log('🔍 Supervisor assignment check:');
       console.log('  Municipality for query:', municipality);
+      console.log('  State for query:', state);
       console.log('  Department for query:', department);
       console.log('  Municipality is truthy:', !!municipality);
+      console.log('  State is truthy:', !!state);
       
       if (municipality) {
         try {
@@ -144,7 +224,8 @@ async function addIssue(category, location, reportImages = []){
         console.log('❌ No municipality provided, cannot assign supervisor');
       }
 
-      const currentTime = new Date().toISOString();
+      const currentTimestamp = admin.firestore.Timestamp.now();
+      const currentTime = currentTimestamp.toDate().toISOString(); // Keep ISO string for legacy support
       
       const task = {
         // Basic issue information (required fields)
@@ -152,9 +233,11 @@ async function addIssue(category, location, reportImages = []){
         department: department.toLowerCase().trim(),
         userLocation: userLocation.trim(),
         municipality: municipality.trim(),
+        state: state.trim(),
         instructions: instructions ? instructions.trim() : '',
         userEmail: userEmail.trim(),
-        createdAt: currentTime,
+        created_at: currentTimestamp, // Firestore Timestamp for queries
+        createdAt: currentTime,       // ISO string for legacy support
         
         // Optional location details
         floor: floor ? floor.trim() : '',
@@ -164,6 +247,7 @@ async function addIssue(category, location, reportImages = []){
         status: issueStatus,
         priority: 'medium',
         assigned_supervisor: assignedSupervisor || '',
+        assigned_at: assignedSupervisor ? currentTimestamp : null,
         assignedAt: assignedSupervisor ? currentTime : '',
         estimatedTime: '',
         
@@ -190,6 +274,7 @@ async function addIssue(category, location, reportImages = []){
         issueType: task.issueType,
         department: task.department,
         municipality: task.municipality,
+        state: task.state,
         userEmail: task.userEmail,
         status: task.status,
         assigned_supervisor: task.assigned_supervisor,

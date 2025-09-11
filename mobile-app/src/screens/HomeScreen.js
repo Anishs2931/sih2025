@@ -204,6 +204,13 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.actionButtonIcon}>📋</Text>
               <Text style={styles.actionButtonText}>View History</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Dashboard')}
+            >
+              <Text style={styles.actionButtonIcon}>📊</Text>
+              <Text style={styles.actionButtonText}>Analytics</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

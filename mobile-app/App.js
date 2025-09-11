@@ -20,6 +20,7 @@ import CameraScreen from './src/screens/CameraScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import IssueDetailScreen from './src/screens/IssueDetailScreen';
+import Dashboard from './src/screens/Dashboard';
 
 // Import theme and context
 import { colors } from './src/utils/theme';
@@ -106,6 +107,17 @@ function MainTabs({ navigation }) {
           headerTitle: 'Issue History',
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>📋</Text>
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Dashboard" 
+        component={Dashboard}
+        options={{
+          tabBarLabel: 'Analytics',
+          headerTitle: 'Analytics Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>📊</Text>
           ),
         }}
       />
